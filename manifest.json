@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "4.1.1.0",
+        "changelog": "Fix LRCLIB search JSON (array root) aborting the whole task.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/TidBits16/peanut-butter-jelly/releases/download/v4.1.1.0/peanut-butter-jelly_4.1.1.0.zip",
+        "checksum": "f5f8f29054e118119b54017cc3c8de55",
+        "timestamp": "2026-08-19T20:51:30Z"
+      },
+      {
         "version": "4.1.0.0",
         "changelog": "Jellyfin 10.11 support. Run now, provider checklists, and album vs song artists as separate fields.",
         "targetAbi": "10.11.0.0",

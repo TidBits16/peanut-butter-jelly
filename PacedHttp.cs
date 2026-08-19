@@ -103,14 +103,12 @@ public class PacedHttp
 
 public static class JsonUtil
 {
+    public static bool IsObject(JsonElement el)
+        => el.ValueKind == JsonValueKind.Object;
+
     public static string Str(JsonElement el, string name)
     {
-        if (el.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
-        {
-            return string.Empty;
-        }
-
-        if (!el.TryGetProperty(name, out var p) || p.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        if (!IsObject(el) || !el.TryGetProperty(name, out var p) || p.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
         {
             return string.Empty;
         }
@@ -120,7 +118,7 @@ public static class JsonUtil
 
     public static double Num(JsonElement el, string name)
     {
-        if (!el.TryGetProperty(name, out var p))
+        if (!IsObject(el) || !el.TryGetProperty(name, out var p))
         {
             return 0;
         }
@@ -135,7 +133,7 @@ public static class JsonUtil
 
     public static bool? Bool(JsonElement el, string name)
     {
-        if (!el.TryGetProperty(name, out var p))
+        if (!IsObject(el) || !el.TryGetProperty(name, out var p))
         {
             return null;
         }
@@ -150,7 +148,7 @@ public static class JsonUtil
 
     public static IEnumerable<JsonElement> Arr(JsonElement el, string name)
     {
-        if (!el.TryGetProperty(name, out var p) || p.ValueKind != JsonValueKind.Array)
+        if (!IsObject(el) || !el.TryGetProperty(name, out var p) || p.ValueKind != JsonValueKind.Array)
         {
             yield break;
         }
@@ -161,8 +159,36 @@ public static class JsonUtil
         }
     }
 
+    public static IEnumerable<JsonElement> ArrayOrNamed(JsonElement el, params string[] names)
+    {
+        if (el.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var x in el.EnumerateArray())
+            {
+                yield return x;
+            }
+
+            yield break;
+        }
+
+        foreach (var name in names)
+        {
+            var any = false;
+            foreach (var x in Arr(el, name))
+            {
+                any = true;
+                yield return x;
+            }
+
+            if (any)
+            {
+                yield break;
+            }
+        }
+    }
+
     public static JsonElement? Obj(JsonElement el, string name)
-        => el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.Object ? p : null;
+        => IsObject(el) && el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.Object ? p : null;
 }
 
 public static class Similarity

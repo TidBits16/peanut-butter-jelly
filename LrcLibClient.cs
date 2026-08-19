@@ -133,7 +133,7 @@ public class LrcLibClient
             }
 
             var payload = await GetAsync("api/get", parameters, cancellationToken).ConfigureAwait(false);
-            if (payload is null || JsonUtil.Bool(payload.Value, "_miss") == true)
+            if (payload is null || payload.Value.ValueKind != JsonValueKind.Object || JsonUtil.Bool(payload.Value, "_miss") == true)
             {
                 return null;
             }
@@ -178,13 +178,15 @@ public class LrcLibClient
         }, cancellationToken).ConfigureAwait(false);
         if (search is { } payload)
         {
-            var results = payload.TryGetProperty("results", out var r) && r.ValueKind == JsonValueKind.Array
-                ? r.EnumerateArray()
-                : JsonUtil.Arr(payload, "data");
             LrcMatch? best = null;
             var bestScore = -1.0;
-            foreach (var raw in results)
+            foreach (var raw in JsonUtil.ArrayOrNamed(payload, "results", "data"))
             {
+                if (raw.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
                 if (duration is { } want && !DurationOk(raw, want))
                 {
                     continue;

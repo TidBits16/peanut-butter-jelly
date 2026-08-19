@@ -377,6 +377,14 @@ public class TaggerEngine
 
                     Queue(new Patch { ItemId = id, Item = job.Item, LyricsText = text, LyricsFormat = ext });
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "PBJ lyrics failed for {Id}", id);
+                }
                 finally
                 {
                     gate.Release();
