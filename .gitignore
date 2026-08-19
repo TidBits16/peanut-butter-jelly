@@ -1,7 +1,5 @@
 .mb_cache/
-__pycache__/
-mb_tagger/__pycache__/
-.venv/
-*.pyc
 .env
-
+.playlist_snapshot.json
+/pbj
+/bin/
