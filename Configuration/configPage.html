@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Peanut Butter &amp; Jelly</title>
+</head>
+<body>
+    <div id="PbjConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="PbjConfigForm">
+                    <div class="sectionTitleContainer">
+                        <h2 class="sectionTitle">Peanut Butter &amp; Jelly</h2>
+                    </div>
+                    <p>Tags music from the Deezer Music API, pulls LRCLIB lyrics and artist bios/photos, and rematches playlists. Runs as a scheduled task — Dashboard → Scheduled Tasks.</p>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="Force" />
+                            <span>Overwrite existing values</span>
+                        </label>
+                        <div class="fieldDescription">Off = fill missing only. On = replace genres, artists, lyrics, photos, and bios from sources.</div>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="TagAlbums" />
+                            <span>Albums (genres, artists, title 🅴)</span>
+                        </label>
+                        <div class="fieldDescription">Never writes the Explicit tag on albums (Jellyfin would copy it onto every track).</div>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="TagTracks" />
+                            <span>Tracks (Explicit tag + title 🅴)</span>
+                        </label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="FetchLyrics" />
+                            <span>Lyrics (LRCLIB)</span>
+                        </label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="FetchArtists" />
+                            <span>Artist photos and bios</span>
+                        </label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="RepairPlaylists" />
+                            <span>Repair playlists</span>
+                        </label>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel" for="Workers">Workers (0 = CPU count)</label>
+                        <input is="emby-input" type="number" id="Workers" min="0" />
+                    </div>
+                    <button is="emby-button" type="submit" class="raised button-submit block">
+                        <span>Save</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+        <script>
+            const PbjConfig = { pluginUniqueId: 'dca13c74-4ea4-4a69-b717-82a06a400c31' };
+            document.querySelector('#PbjConfigPage').addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(PbjConfig.pluginUniqueId).then(function (config) {
+                    document.querySelector('#Force').checked = !!config.Force;
+                    document.querySelector('#TagAlbums').checked = config.TagAlbums !== false;
+                    document.querySelector('#TagTracks').checked = config.TagTracks !== false;
+                    document.querySelector('#FetchLyrics').checked = config.FetchLyrics !== false;
+                    document.querySelector('#FetchArtists').checked = config.FetchArtists !== false;
+                    document.querySelector('#RepairPlaylists').checked = config.RepairPlaylists !== false;
+                    document.querySelector('#Workers').value = config.Workers || 0;
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+            document.querySelector('#PbjConfigForm').addEventListener('submit', function (e) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(PbjConfig.pluginUniqueId).then(function (config) {
+                    config.Force = document.querySelector('#Force').checked;
+                    config.TagAlbums = document.querySelector('#TagAlbums').checked;
+                    config.TagTracks = document.querySelector('#TagTracks').checked;
+                    config.FetchLyrics = document.querySelector('#FetchLyrics').checked;
+                    config.FetchArtists = document.querySelector('#FetchArtists').checked;
+                    config.RepairPlaylists = document.querySelector('#RepairPlaylists').checked;
+                    config.Workers = parseInt(document.querySelector('#Workers').value, 10) || 0;
+                    ApiClient.updatePluginConfiguration(PbjConfig.pluginUniqueId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+                e.preventDefault();
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>

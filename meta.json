@@ -1,0 +1,9 @@
+{
+  "guid": "dca13c74-4ea4-4a69-b717-82a06a400c31",
+  "name": "Peanut Butter & Jelly",
+  "description": "Deezer genres/artists/explicit, LRCLIB lyrics, artist bios/photos, and playlist repair as a scheduled task.",
+  "overview": "Scheduled-task music tagger for Jellyfin.",
+  "owner": "TidBits16",
+  "category": "Metadata",
+  "imageUrl": ""
+}

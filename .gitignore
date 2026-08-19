@@ -3,3 +3,5 @@
 .playlist_snapshot.json
 /pbj
 /bin/
+/obj/
+*.user
