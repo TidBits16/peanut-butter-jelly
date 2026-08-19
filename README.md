@@ -45,13 +45,11 @@ This is a normal Jellyfin plugin. You add **this repo** as a plugin catalog, the
 1. **Dashboard → Plugins → Repositories** (the `+` / gear on some skins).
 2. Add a repository:
    - **Name:** `Peanut Butter & Jelly`
-   - **URL:** `https://raw.githubusercontent.com/TidBits16/peanut-butter-jelly/main/manifest.json`
+   - **URL:** `https://cdn.jsdelivr.net/gh/TidBits16/peanut-butter-jelly@main/manifest.json`
 3. Open **Catalog**, find **Peanut Butter & Jelly**, hit **Install**.
 4. Restart Jellyfin when it asks.
 
 Then: **Dashboard → Plugins → Peanut Butter & Jelly** for toggles, and **Dashboard → Scheduled Tasks → Peanut Butter & Jelly** to run it (default every 24 hours).
-
-Jellyfin downloads the catalog and the zip **as the server**, with no GitHub login. This GitHub repo has to be **public** (or those URLs 404 and the plugin never appears).
 
 Built for **Jellyfin 10.10.x**. Releases are versioned zips (`dll` + `meta.json`) attached to [GitHub Releases](https://github.com/TidBits16/peanut-butter-jelly/releases).
 
