@@ -67,4 +67,40 @@ public static class Titles
 
         return b.ToString().Trim();
     }
+
+    public static List<string> DistinctNames(IEnumerable<string> names)
+    {
+        var output = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in names)
+        {
+            var text = name.Trim();
+            if (text.Length == 0 || !seen.Add(text))
+            {
+                continue;
+            }
+
+            output.Add(text);
+        }
+
+        return output;
+    }
+
+    public static bool SameNames(IReadOnlyList<string> a, IReadOnlyList<string> b)
+    {
+        if (a.Count != b.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < a.Count; i++)
+        {
+            if (!a[i].Equals(b[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

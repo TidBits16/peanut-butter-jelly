@@ -20,6 +20,10 @@ public sealed class DeezerArtistInfo
     public int ArtistId { get; init; }
 
     public string Picture { get; init; } = string.Empty;
+
+    public string Role { get; init; } = string.Empty;
+
+    public bool IsAlbumArtist => Role.Length == 0 || Role.Equals("Main", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class DeezerAlbumMatch
@@ -32,7 +36,9 @@ public sealed class DeezerAlbumMatch
 
     public string Title { get; init; } = string.Empty;
 
-    public string AlbumArtist { get; init; } = string.Empty;
+    public List<string> AlbumArtists { get; init; } = [];
+
+    public string AlbumArtist => AlbumArtists.Count > 0 ? AlbumArtists[0] : string.Empty;
 
     public List<string> Artists { get; init; } = [];
 
@@ -76,7 +82,7 @@ public class DeezerClient
             }
         }
 
-        var cacheKey = $"deezer/album-match/v1|{key.Item1}|{key.Item2}";
+        var cacheKey = $"deezer/album-match/v2|{key.Item1}|{key.Item2}";
         if (_cache.TryGet(cacheKey, Ttl, out var disk))
         {
             var cached = MatchFromCache(disk);
@@ -391,8 +397,13 @@ public class DeezerClient
         }
 
         var p = payload.Value;
-        var infos = ArtistInfos(p);
-        var arts = infos.Select(i => i.Name).ToList();
+        var infos = ArtistInfos(p, defaultRole: "Main");
+        var albumArtists = Titles.DistinctNames(infos.Where(i => i.IsAlbumArtist).Select(i => i.Name));
+        if (albumArtists.Count == 0)
+        {
+            albumArtists = Titles.DistinctNames(infos.Select(i => i.Name).Take(1));
+        }
+
         var embedded = JsonUtil.Obj(p, "tracks") is { } tracksObj ? JsonUtil.Arr(tracksObj, "data") : [];
         var tracks = await AlbumTracksAsync(id, embedded, p.TryGetProperty("nb_tracks", out var nb) ? nb : default, cancellationToken).ConfigureAwait(false);
         var src = "album:" + id;
@@ -408,8 +419,8 @@ public class DeezerClient
             Source = src,
             AlbumId = (int)JsonUtil.Num(p, "id"),
             Title = JsonUtil.Str(p, "title"),
-            AlbumArtist = arts.Count > 0 ? arts[0] : string.Empty,
-            Artists = arts,
+            AlbumArtists = albumArtists,
+            Artists = Titles.DistinctNames(tracks.SelectMany(t => t.Artists)),
             ArtistInfos = infos,
             Tracks = tracks,
             Explicit = ExplicitFrom(p, true)
@@ -428,7 +439,7 @@ public class DeezerClient
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var raw in embedded)
         {
-            if (TrackFrom(raw) is { } t)
+            if (await TrackFromAsync(raw, cancellationToken).ConfigureAwait(false) is { } t)
             {
                 items.Add(t);
                 seen.Add(t.Title);
@@ -453,7 +464,7 @@ public class DeezerClient
 
             foreach (var raw in JsonUtil.Arr(payload.Value, "data"))
             {
-                if (TrackFrom(raw) is not { } t)
+                if (await TrackFromAsync(raw, cancellationToken).ConfigureAwait(false) is not { } t)
                 {
                     continue;
                 }
@@ -506,9 +517,26 @@ public class DeezerClient
         return await _http.GetJsonAsync("deezer/" + path, url, query, Ttl, cancellationToken).ConfigureAwait(false);
     }
 
-    private static DeezerTrack? TrackFrom(JsonElement raw)
+    private async Task<DeezerTrack?> TrackFromAsync(JsonElement raw, CancellationToken cancellationToken)
     {
-        var title = JsonUtil.Str(raw, "title").Trim();
+        var detail = raw;
+        var hasContributors = raw.TryGetProperty("contributors", out var contrib) && contrib.ValueKind == JsonValueKind.Array && contrib.GetArrayLength() > 0;
+        var trackId = (int)JsonUtil.Num(raw, "id");
+        if (!hasContributors && trackId != 0)
+        {
+            var full = await GetAsync("track/" + trackId, null, cancellationToken).ConfigureAwait(false);
+            if (full is { } body && !body.TryGetProperty("error", out _))
+            {
+                detail = body;
+            }
+        }
+
+        var title = JsonUtil.Str(detail, "title").Trim();
+        if (title.Length == 0)
+        {
+            title = JsonUtil.Str(raw, "title").Trim();
+        }
+
         if (title.Length == 0)
         {
             return null;
@@ -517,8 +545,8 @@ public class DeezerClient
         return new DeezerTrack
         {
             Title = title,
-            Explicit = ExplicitFrom(raw, false),
-            Artists = ArtistInfos(raw).Select(i => i.Name).ToList()
+            Explicit = ExplicitFrom(detail, false) ?? ExplicitFrom(raw, false),
+            Artists = Titles.DistinctNames(ArtistInfos(detail).Select(i => i.Name))
         };
     }
 
@@ -546,11 +574,11 @@ public class DeezerClient
         return Genres.PrettyList(names, 3);
     }
 
-    private static List<DeezerArtistInfo> ArtistInfos(JsonElement payload)
+    private static List<DeezerArtistInfo> ArtistInfos(JsonElement payload, string defaultRole = "")
     {
         var infos = new List<DeezerArtistInfo>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        void Add(JsonElement? raw)
+        void Add(JsonElement? raw, string fallbackRole)
         {
             if (raw is null || raw.Value.ValueKind != JsonValueKind.Object)
             {
@@ -563,18 +591,25 @@ public class DeezerClient
                 return;
             }
 
+            var role = JsonUtil.Str(raw.Value, "role").Trim();
+            if (role.Length == 0)
+            {
+                role = fallbackRole;
+            }
+
             infos.Add(new DeezerArtistInfo
             {
                 Name = name,
                 ArtistId = (int)JsonUtil.Num(raw.Value, "id"),
-                Picture = PictureUrl(raw.Value)
+                Picture = PictureUrl(raw.Value),
+                Role = role
             });
         }
 
-        Add(JsonUtil.Obj(payload, "artist"));
+        Add(JsonUtil.Obj(payload, "artist"), defaultRole.Length > 0 ? defaultRole : "Main");
         foreach (var p in JsonUtil.Arr(payload, "contributors"))
         {
-            Add(p);
+            Add(p, defaultRole);
         }
 
         return infos;
@@ -686,15 +721,25 @@ public class DeezerClient
             };
         }
 
+        var albumArtists = Titles.DistinctNames(JsonUtil.Arr(raw, "album_artists").Select(x => x.GetString() ?? string.Empty));
+        if (albumArtists.Count == 0)
+        {
+            var legacy = JsonUtil.Str(raw, "album_artist");
+            if (legacy.Length > 0)
+            {
+                albumArtists.Add(legacy);
+            }
+        }
+
         var m = new DeezerAlbumMatch
         {
             Source = JsonUtil.Str(raw, "source"),
             Title = JsonUtil.Str(raw, "title"),
-            AlbumArtist = JsonUtil.Str(raw, "album_artist"),
+            AlbumArtists = albumArtists,
             Explicit = Ex(raw),
             AlbumId = (int)JsonUtil.Num(raw, "album_id"),
             Genres = JsonUtil.Arr(raw, "genres").Select(x => x.GetString() ?? string.Empty).Where(s => s.Length > 0).ToList(),
-            Artists = JsonUtil.Arr(raw, "artists").Select(x => x.GetString() ?? string.Empty).Where(s => s.Length > 0).ToList()
+            Artists = Titles.DistinctNames(JsonUtil.Arr(raw, "artists").Select(x => x.GetString() ?? string.Empty))
         };
         foreach (var inf in JsonUtil.Arr(raw, "artist_infos"))
         {
@@ -702,7 +747,8 @@ public class DeezerClient
             {
                 Name = JsonUtil.Str(inf, "name"),
                 ArtistId = (int)JsonUtil.Num(inf, "artist_id"),
-                Picture = JsonUtil.Str(inf, "picture")
+                Picture = JsonUtil.Str(inf, "picture"),
+                Role = JsonUtil.Str(inf, "role")
             });
         }
 
@@ -712,8 +758,24 @@ public class DeezerClient
             {
                 Title = JsonUtil.Str(t, "title"),
                 Explicit = Ex(t),
-                Artists = JsonUtil.Arr(t, "artists").Select(x => x.GetString() ?? string.Empty).Where(s => s.Length > 0).ToList()
+                Artists = Titles.DistinctNames(JsonUtil.Arr(t, "artists").Select(x => x.GetString() ?? string.Empty))
             });
+        }
+
+        if (m.Artists.Count == 0)
+        {
+            m = new DeezerAlbumMatch
+            {
+                Genres = m.Genres,
+                Source = m.Source,
+                AlbumId = m.AlbumId,
+                Title = m.Title,
+                AlbumArtists = m.AlbumArtists,
+                Artists = Titles.DistinctNames(m.Tracks.SelectMany(t => t.Artists)),
+                ArtistInfos = m.ArtistInfos,
+                Tracks = m.Tracks,
+                Explicit = m.Explicit
+            };
         }
 
         return m;
@@ -726,9 +788,10 @@ public class DeezerClient
         ["album_id"] = m.AlbumId,
         ["title"] = m.Title,
         ["album_artist"] = m.AlbumArtist,
+        ["album_artists"] = m.AlbumArtists,
         ["artists"] = m.Artists,
         ["explicit"] = m.Explicit,
-        ["artist_infos"] = m.ArtistInfos.Select(i => new { name = i.Name, artist_id = i.ArtistId, picture = i.Picture }).ToList(),
+        ["artist_infos"] = m.ArtistInfos.Select(i => new { name = i.Name, artist_id = i.ArtistId, picture = i.Picture, role = i.Role }).ToList(),
         ["tracks"] = m.Tracks.Select(t => new { title = t.Title, @explicit = t.Explicit, artists = t.Artists }).ToList()
     };
 }

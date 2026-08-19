@@ -155,7 +155,10 @@ public class TaggerEngine
                 }
             }
 
-            var wantAlbumArtists = match.Artists.Count > 0 ? match.Artists : (string.IsNullOrEmpty(match.AlbumArtist) ? [] : new List<string> { match.AlbumArtist });
+            var wantAlbumArtists = match.AlbumArtists;
+            var wantAlbumSongArtists = match.Artists.Count > 0
+                ? match.Artists
+                : Titles.DistinctNames(match.Tracks.SelectMany(t => t.Artists));
             var albumIds = items.Select(t => t.AlbumEntity?.Id ?? Guid.Empty).Where(id => id != Guid.Empty).Distinct().ToList();
             if (cfg.TagAlbums)
             {
@@ -177,13 +180,16 @@ public class TaggerEngine
                     var needGenres = match.Genres.Count > 0 && ShouldWrite(gotGenres.Count > 0, !gotGenres.SequenceEqual(match.Genres), force);
                     var gotArtists = albumItem?.Artists.ToList() ?? [];
                     var gotAlbumArtists = albumItem?.AlbumArtists.ToList() ?? [];
-                    var gotAlbumArtist = gotAlbumArtists.FirstOrDefault() ?? string.Empty;
-                    var needArtists = wantAlbumArtists.Count > 0 && ShouldWrite(
-                        gotArtists.Count > 0 || gotAlbumArtists.Count > 0,
-                        !gotArtists.SequenceEqual(wantAlbumArtists) || gotAlbumArtist != match.AlbumArtist || !gotAlbumArtists.SequenceEqual(wantAlbumArtists),
+                    var needAlbumArtists = wantAlbumArtists.Count > 0 && ShouldWrite(
+                        gotAlbumArtists.Count > 0,
+                        !Titles.SameNames(gotAlbumArtists, wantAlbumArtists),
+                        force);
+                    var needSongArtists = wantAlbumSongArtists.Count > 0 && ShouldWrite(
+                        gotArtists.Count > 0,
+                        !Titles.SameNames(gotArtists, wantAlbumSongArtists),
                         force);
 
-                    if (!needGenres && !needArtists && !needMark && !needUnmark && !needUntag)
+                    if (!needGenres && !needAlbumArtists && !needSongArtists && !needMark && !needUnmark && !needUntag)
                     {
                         continue;
                     }
@@ -204,8 +210,8 @@ public class TaggerEngine
                         Item = albumItem,
                         Name = nameWrite,
                         Genres = needGenres ? match.Genres : null,
-                        Artists = needArtists ? wantAlbumArtists : null,
-                        AlbumArtist = needArtists && match.AlbumArtist.Length > 0 ? match.AlbumArtist : null,
+                        Artists = needSongArtists ? wantAlbumSongArtists : null,
+                        AlbumArtists = needAlbumArtists ? wantAlbumArtists : null,
                         Explicit = needUntag ? false : null
                     });
                 }
@@ -236,14 +242,18 @@ public class TaggerEngine
                 var wantE = cfg.TagTracks && dzTrack?.Explicit == true;
                 var clearE = cfg.TagTracks && dzTrack?.Explicit == false && (tagged || marked);
                 var needE = wantE && (!tagged || !marked);
-                var wantArtists = dzTrack is { Artists.Count: > 0 } ? dzTrack.Artists
-                    : match.AlbumArtist.Length > 0 ? [match.AlbumArtist] : new List<string>();
-                RememberLyrics(item, lyricsJobs, force, cfg, wantArtists, g.Key.Item2);
-                var needArtists = cfg.TagTracks && wantArtists.Count > 0 && ShouldWrite(
-                    item.Artists.Count > 0 || item.AlbumArtists.Count > 0,
-                    !item.Artists.SequenceEqual(wantArtists) || (item.AlbumArtists.FirstOrDefault() ?? string.Empty) != match.AlbumArtist,
+                var wantSongArtists = dzTrack is { Artists.Count: > 0 } ? dzTrack.Artists : [];
+                var lyricsNames = Titles.DistinctNames(wantSongArtists.Concat(wantAlbumArtists));
+                RememberLyrics(item, lyricsJobs, force, cfg, lyricsNames, g.Key.Item2);
+                var needSongArtists = cfg.TagTracks && wantSongArtists.Count > 0 && ShouldWrite(
+                    item.Artists.Count > 0,
+                    !Titles.SameNames(item.Artists, wantSongArtists),
                     force);
-                if (!needE && !clearE && !needArtists && addTags is null && removeTags is null)
+                var needAlbumArtists = cfg.TagTracks && wantAlbumArtists.Count > 0 && ShouldWrite(
+                    item.AlbumArtists.Count > 0,
+                    !Titles.SameNames(item.AlbumArtists, wantAlbumArtists),
+                    force);
+                if (!needE && !clearE && !needSongArtists && !needAlbumArtists && addTags is null && removeTags is null)
                 {
                     continue;
                 }
@@ -263,8 +273,8 @@ public class TaggerEngine
                     ItemId = item.Id,
                     Item = item,
                     Name = newName,
-                    Artists = needArtists ? wantArtists : null,
-                    AlbumArtist = needArtists && match.AlbumArtist.Length > 0 ? match.AlbumArtist : null,
+                    Artists = needSongArtists ? wantSongArtists : null,
+                    AlbumArtists = needAlbumArtists ? wantAlbumArtists : null,
                     Explicit = needE ? true : clearE && tagged ? false : null,
                     AddTags = addTags ?? [],
                     RemoveTags = removeTags ?? []
@@ -462,33 +472,16 @@ public class TaggerEngine
             dirty = true;
         }
 
-        if (item is Audio audio)
+        if (item is IHasArtist hasArtist && p.Artists is not null)
         {
-            if (p.Artists is not null)
-            {
-                audio.Artists = p.Artists;
-                dirty = true;
-            }
-
-            if (p.AlbumArtist is not null)
-            {
-                audio.AlbumArtists = [p.AlbumArtist];
-                dirty = true;
-            }
+            hasArtist.Artists = p.Artists;
+            dirty = true;
         }
-        else if (item is MusicAlbum album)
-        {
-            if (p.Artists is not null)
-            {
-                album.Artists = p.Artists;
-                dirty = true;
-            }
 
-            if (p.AlbumArtist is not null)
-            {
-                album.AlbumArtists = [p.AlbumArtist];
-                dirty = true;
-            }
+        if (item is IHasAlbumArtist hasAlbumArtist && p.AlbumArtists is not null)
+        {
+            hasAlbumArtist.AlbumArtists = p.AlbumArtists;
+            dirty = true;
         }
 
         var tags = item.Tags.ToList();
@@ -634,7 +627,7 @@ public class TaggerEngine
 
         public List<string>? Artists { get; init; }
 
-        public string? AlbumArtist { get; init; }
+        public List<string>? AlbumArtists { get; init; }
 
         public bool? Explicit { get; init; }
 
@@ -653,7 +646,7 @@ public class TaggerEngine
         public string ImageUrl { get; init; } = string.Empty;
 
         public bool Empty =>
-            Genres is null && Artists is null && AlbumArtist is null && Explicit is null && Name is null
+            Genres is null && Artists is null && AlbumArtists is null && Explicit is null && Name is null
             && AddTags.Count == 0 && RemoveTags.Count == 0 && Overview is null
             && LyricsText.Length == 0 && ImageUrl.Length == 0;
 
@@ -663,7 +656,7 @@ public class TaggerEngine
             Item = Item ?? src.Item,
             Genres = src.Genres ?? Genres,
             Artists = src.Artists ?? Artists,
-            AlbumArtist = src.AlbumArtist ?? AlbumArtist,
+            AlbumArtists = src.AlbumArtists ?? AlbumArtists,
             Explicit = src.Explicit ?? Explicit,
             Name = src.Name ?? Name,
             AddTags = AddTags.Concat(src.AddTags).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),

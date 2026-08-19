@@ -1,0 +1,21 @@
+[
+  {
+    "guid": "dca13c74-4ea4-4a69-b717-82a06a400c31",
+    "name": "Peanut Butter & Jelly",
+    "description": "Deezer genres, album artists, song artists, explicit, LRCLIB lyrics, artist bios/photos, and playlist repair as a scheduled task.",
+    "overview": "Scheduled-task music tagger for Jellyfin.",
+    "owner": "TidBits16",
+    "category": "Metadata",
+    "imageUrl": "",
+    "versions": [
+      {
+        "version": "4.0.1.0",
+        "changelog": "Catalog install. Album artists and song artists are written to separate Jellyfin fields.",
+        "targetAbi": "10.10.7.0",
+        "sourceUrl": "https://github.com/TidBits16/peanut-butter-jelly/releases/download/v4.0.1.0/peanut-butter-jelly_4.0.1.0.zip",
+        "checksum": "d747f651c77a6b9a4785b4e350721108",
+        "timestamp": "2026-08-19T19:31:56Z"
+      }
+    ]
+  }
+]

@@ -24,14 +24,14 @@
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
                             <input is="emby-checkbox" type="checkbox" id="TagAlbums" />
-                            <span>Albums (genres, artists, title 🅴)</span>
+                            <span>Albums (genres, album artists, song artists, title 🅴)</span>
                         </label>
-                        <div class="fieldDescription">Never writes the Explicit tag on albums (Jellyfin would copy it onto every track).</div>
+                        <div class="fieldDescription">Album artists and song artists are written to separate Jellyfin fields. Never writes the Explicit tag on albums (Jellyfin would copy it onto every track).</div>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
                             <input is="emby-checkbox" type="checkbox" id="TagTracks" />
-                            <span>Tracks (Explicit tag + title 🅴)</span>
+                            <span>Tracks (artists, album artists, Explicit tag + title 🅴)</span>
                         </label>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">

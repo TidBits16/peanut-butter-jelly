@@ -26,8 +26,8 @@ There used to be a terminal UI. It was cute. It also meant you had to remember t
 
 | Layer | What you get |
 | --- | --- |
-| **Albums** | Deezer genres + artists. Title gets 🅴 when the *album* is explicit. The `Explicit` **tag is never written on albums** (Jellyfin would smear it onto every track). If that tag is already there, it gets scraped off. |
-| **Tracks** | Per-track `Explicit` tag + title 🅴 from the *track* lookup. Unmatched songs get `DeezerNoMatch`; the tag drops when a match shows up. |
+| **Albums** | Deezer genres. **Album artists** and **song artists** go to Jellyfin’s two separate fields (not copied into each other). Title gets 🅴 when the *album* is explicit. The `Explicit` **tag is never written on albums** (Jellyfin would smear it onto every track). If that tag is already there, it gets scraped off. |
+| **Tracks** | Per-track song artists from Deezer’s track credits, album artists from the album, `Explicit` tag + title 🅴 from the *track* lookup. Unmatched songs get `DeezerNoMatch`; the tag drops when a match shows up. |
 | **Lyrics** | [LRCLIB](https://lrclib.net) — synced `.lrc` when it exists, otherwise plain text. Instrumentals with no words are left alone. |
 | **Artists** | Photos from Deezer. Bios from AudioDB, then Wikipedia / Wikidata. |
 | **Playlists** | Membership is snapshotted, then rematched by library-relative path (the per-user folder under `media/music/` is stripped). Empty playlists can be salvaged from Jellyfin cleanup logs: `Item in "NAME" cannot be found at "PATH"`. |
@@ -40,24 +40,30 @@ The scheduled task **writes for real**. There is no dry-run switch anymore.
 
 ## Install
 
-Built for **Jellyfin 10.10.x** (`net8.0`).
+This is a normal Jellyfin plugin. You add **this repo** as a plugin catalog, then install it from the Catalog tab like anything else.
+
+1. **Dashboard → Plugins → Repositories** (the `+` / gear on some skins).
+2. Add a repository:
+   - **Name:** `Peanut Butter & Jelly`
+   - **URL:** `https://raw.githubusercontent.com/TidBits16/peanut-butter-jelly/main/manifest.json`
+3. Open **Catalog**, find **Peanut Butter & Jelly**, hit **Install**.
+4. Restart Jellyfin when it asks.
+
+Then: **Dashboard → Plugins → Peanut Butter & Jelly** for toggles, and **Dashboard → Scheduled Tasks → Peanut Butter & Jelly** to run it (default every 24 hours).
+
+Jellyfin downloads the catalog and the zip **as the server**, with no GitHub login. This GitHub repo has to be **public** (or those URLs 404 and the plugin never appears).
+
+Built for **Jellyfin 10.10.x**. Releases are versioned zips (`dll` + `meta.json`) attached to [GitHub Releases](https://github.com/TidBits16/peanut-butter-jelly/releases).
+
+<details>
+<summary>Sideload a zip by hand</summary>
 
 ```bash
-dotnet build -c Release
+bash scripts/package.sh
 ```
 
-Drop the DLL (and `meta.json` if you want the catalog extras) into a plugin folder:
-
-```
-{jellyfin-data}/plugins/PeanutButterJelly/Jellyfin.Plugin.PeanutButterJelly.dll
-```
-
-Linux packages usually mean `/var/lib/jellyfin/plugins/`. Docker means whatever you mounted as config/data. Then **restart Jellyfin**.
-
-1. **Dashboard → Plugins → Peanut Butter & Jelly** — save the toggles you want.
-2. **Dashboard → Scheduled Tasks → Peanut Butter & Jelly** — default is every 24 hours. Hit **Run now** once so you can watch the log.
-
-The plugin talks outbound HTTPS to Deezer, LRCLIB, AudioDB, Wikipedia, and Wikidata. HTTP answers are cached under Jellyfin’s cache dir (`peanut-butter-jelly/`). Playlist snapshots sit in plugin data.
+Unzip `dist/peanut-butter-jelly_*.zip` into `{jellyfin-data}/plugins/PeanutButterJelly/` and restart.
+</details>
 
 ---
 
