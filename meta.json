@@ -6,7 +6,7 @@
   "owner": "TidBits16",
   "category": "Metadata",
   "imageUrl": "",
-  "version": "4.0.1.0",
-  "targetAbi": "10.10.7.0",
-  "changelog": "Catalog install. Album artists and song artists are written to separate Jellyfin fields."
+  "version": "4.1.0.0",
+  "targetAbi": "10.11.0.0",
+  "changelog": "Jellyfin 10.11 support. Run now, provider checklists, and album vs song artists as separate fields."
 }

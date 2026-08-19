@@ -17,7 +17,7 @@ dotnet build -c Release --nologo
 
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
-cp "bin/Release/net8.0/Jellyfin.Plugin.PeanutButterJelly.dll" "$stage/"
+cp "bin/Release/net9.0/Jellyfin.Plugin.PeanutButterJelly.dll" "$stage/"
 cp meta.json "$stage/"
 
 mkdir -p dist
@@ -68,7 +68,7 @@ versions = [v for v in entry.get("versions", []) if v.get("version") != version]
 versions.insert(0, {
     "version": version,
     "changelog": meta.get("changelog") or f"Release {version}",
-    "targetAbi": meta.get("targetAbi") or "10.10.7.0",
+    "targetAbi": meta.get("targetAbi") or "10.11.0.0",
     "sourceUrl": source_url,
     "checksum": checksum,
     "timestamp": timestamp,

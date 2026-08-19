@@ -9,24 +9,31 @@
         <div data-role="content">
             <div class="content-primary">
                 <form id="PbjConfigForm">
-                    <div class="sectionTitleContainer">
+                    <div class="sectionTitleContainer flex align-items-center">
                         <h2 class="sectionTitle">Peanut Butter &amp; Jelly</h2>
                     </div>
-                    <p>Tags music from the Deezer Music API, pulls LRCLIB lyrics and artist bios/photos, and rematches playlists. Runs as a scheduled task — Dashboard → Scheduled Tasks.</p>
+                    <p>Deezer tags, lyrics, photos, bios, and playlist repair. Uncheck every provider in a list to skip writing that kind of data.</p>
+
+                    <div class="verticalSection">
+                        <button is="emby-button" type="button" id="PbjRunNow" class="raised button-submit">
+                            <span>Run now</span>
+                        </button>
+                        <div class="fieldDescription" id="PbjRunNowStatus">Saves these settings, then starts the scheduled task.</div>
+                    </div>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
                             <input is="emby-checkbox" type="checkbox" id="Force" />
                             <span>Overwrite existing values</span>
                         </label>
-                        <div class="fieldDescription">Off = fill missing only. On = replace genres, artists, lyrics, photos, and bios from sources.</div>
+                        <div class="fieldDescription">Off = fill missing only. On = replace genres, artists, lyrics, photos, and bios from the selected sources.</div>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
                             <input is="emby-checkbox" type="checkbox" id="TagAlbums" />
                             <span>Albums (genres, album artists, song artists, title 🅴)</span>
                         </label>
-                        <div class="fieldDescription">Album artists and song artists are written to separate Jellyfin fields. Never writes the Explicit tag on albums (Jellyfin would copy it onto every track).</div>
+                        <div class="fieldDescription">Album artists and song artists are written to separate Jellyfin fields. Never writes the Explicit tag on albums.</div>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
@@ -36,26 +43,61 @@
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
-                            <input is="emby-checkbox" type="checkbox" id="FetchLyrics" />
-                            <span>Lyrics (LRCLIB)</span>
-                        </label>
-                    </div>
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label>
-                            <input is="emby-checkbox" type="checkbox" id="FetchArtists" />
-                            <span>Artist photos and bios</span>
-                        </label>
-                    </div>
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label>
                             <input is="emby-checkbox" type="checkbox" id="RepairPlaylists" />
                             <span>Repair playlists</span>
                         </label>
                     </div>
-                    <div class="inputContainer">
-                        <label class="inputLabel" for="Workers">Workers (0 = CPU count)</label>
-                        <input is="emby-input" type="number" id="Workers" min="0" />
+
+                    <div class="verticalSection">
+                        <h3 class="checkboxListLabel">Lyric providers</h3>
+                        <div class="fieldDescription">Leave all unchecked to skip writing lyrics.</div>
+                        <div class="checkboxList paperList" style="padding:.5em 1em">
+                            <label class="checkboxListItem">
+                                <input is="emby-checkbox" type="checkbox" class="PbjLyric" data-id="LRCLIB" />
+                                <span>LRCLIB</span>
+                            </label>
+                        </div>
                     </div>
+
+                    <div class="verticalSection">
+                        <h3 class="checkboxListLabel">Artist photo providers</h3>
+                        <div class="fieldDescription">Leave all unchecked to skip writing artist photos.</div>
+                        <div class="checkboxList paperList" style="padding:.5em 1em">
+                            <label class="checkboxListItem">
+                                <input is="emby-checkbox" type="checkbox" class="PbjPhoto" data-id="Deezer" />
+                                <span>Deezer</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <h3 class="checkboxListLabel">Artist bio providers</h3>
+                        <div class="fieldDescription">Tried in order. Leave all unchecked to skip writing bios.</div>
+                        <div class="checkboxList paperList" style="padding:.5em 1em">
+                            <label class="checkboxListItem">
+                                <input is="emby-checkbox" type="checkbox" class="PbjBio" data-id="AudioDB" />
+                                <span>AudioDB</span>
+                            </label>
+                            <label class="checkboxListItem">
+                                <input is="emby-checkbox" type="checkbox" class="PbjBio" data-id="Wikipedia" />
+                                <span>Wikipedia</span>
+                            </label>
+                            <label class="checkboxListItem">
+                                <input is="emby-checkbox" type="checkbox" class="PbjBio" data-id="Wikidata" />
+                                <span>Wikidata</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <details class="verticalSection">
+                        <summary class="checkboxListLabel" style="cursor:pointer">Advanced</summary>
+                        <div class="inputContainer" style="margin-top:1em">
+                            <label class="inputLabel" for="Workers">Workers (0 = CPU count)</label>
+                            <input is="emby-input" type="number" id="Workers" min="0" />
+                            <div class="fieldDescription">Caps at the CPU count. Leave 0 unless you need to slow the job down.</div>
+                        </div>
+                    </details>
+
                     <button is="emby-button" type="submit" class="raised button-submit block">
                         <span>Save</span>
                     </button>
@@ -63,36 +105,104 @@
             </div>
         </div>
         <script>
-            const PbjConfig = { pluginUniqueId: 'dca13c74-4ea4-4a69-b717-82a06a400c31' };
-            document.querySelector('#PbjConfigPage').addEventListener('pageshow', function () {
-                Dashboard.showLoadingMsg();
-                ApiClient.getPluginConfiguration(PbjConfig.pluginUniqueId).then(function (config) {
-                    document.querySelector('#Force').checked = !!config.Force;
-                    document.querySelector('#TagAlbums').checked = config.TagAlbums !== false;
-                    document.querySelector('#TagTracks').checked = config.TagTracks !== false;
-                    document.querySelector('#FetchLyrics').checked = config.FetchLyrics !== false;
-                    document.querySelector('#FetchArtists').checked = config.FetchArtists !== false;
-                    document.querySelector('#RepairPlaylists').checked = config.RepairPlaylists !== false;
-                    document.querySelector('#Workers').value = config.Workers || 0;
-                    Dashboard.hideLoadingMsg();
+            const PbjConfig = { pluginUniqueId: 'dca13c74-4ea4-4a69-b717-82a06a400c31', taskKey: 'PeanutButterJellyTagLibrary' };
+
+            function selected(selector) {
+                return Array.from(document.querySelectorAll(selector + ':checked')).map(function (el) { return el.getAttribute('data-id'); });
+            }
+
+            function setGroup(selector, values, fallbackOn) {
+                const set = {};
+                (values || []).forEach(function (v) { set[String(v).toLowerCase()] = true; });
+                const any = Object.keys(set).length > 0;
+                document.querySelectorAll(selector).forEach(function (el) {
+                    const id = (el.getAttribute('data-id') || '').toLowerCase();
+                    el.checked = any ? !!set[id] : fallbackOn;
                 });
-            });
-            document.querySelector('#PbjConfigForm').addEventListener('submit', function (e) {
-                Dashboard.showLoadingMsg();
-                ApiClient.getPluginConfiguration(PbjConfig.pluginUniqueId).then(function (config) {
+            }
+
+            function applyConfig(config) {
+                document.querySelector('#Force').checked = !!config.Force;
+                document.querySelector('#TagAlbums').checked = config.TagAlbums !== false;
+                document.querySelector('#TagTracks').checked = config.TagTracks !== false;
+                document.querySelector('#RepairPlaylists').checked = config.RepairPlaylists !== false;
+                document.querySelector('#Workers').value = config.Workers || 0;
+                const lyricsUnset = config.LyricProviders == null;
+                const photosUnset = config.PhotoProviders == null;
+                const biosUnset = config.BioProviders == null;
+                setGroup('.PbjLyric', config.LyricProviders, lyricsUnset && config.FetchLyrics !== false);
+                setGroup('.PbjPhoto', config.PhotoProviders, photosUnset && config.FetchArtists !== false);
+                setGroup('.PbjBio', config.BioProviders, biosUnset && config.FetchArtists !== false);
+            }
+
+            function saveConfig() {
+                return ApiClient.getPluginConfiguration(PbjConfig.pluginUniqueId).then(function (config) {
                     config.Force = document.querySelector('#Force').checked;
                     config.TagAlbums = document.querySelector('#TagAlbums').checked;
                     config.TagTracks = document.querySelector('#TagTracks').checked;
-                    config.FetchLyrics = document.querySelector('#FetchLyrics').checked;
-                    config.FetchArtists = document.querySelector('#FetchArtists').checked;
                     config.RepairPlaylists = document.querySelector('#RepairPlaylists').checked;
                     config.Workers = parseInt(document.querySelector('#Workers').value, 10) || 0;
-                    ApiClient.updatePluginConfiguration(PbjConfig.pluginUniqueId, config).then(function (result) {
-                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    config.LyricProviders = selected('.PbjLyric');
+                    config.PhotoProviders = selected('.PbjPhoto');
+                    config.BioProviders = selected('.PbjBio');
+                    config.FetchLyrics = config.LyricProviders.length > 0;
+                    config.FetchArtists = config.PhotoProviders.length > 0 || config.BioProviders.length > 0;
+                    return ApiClient.updatePluginConfiguration(PbjConfig.pluginUniqueId, config);
+                });
+            }
+
+            function startTask() {
+                const getTasks = ApiClient.getScheduledTasks
+                    ? ApiClient.getScheduledTasks()
+                    : ApiClient.getJSON(ApiClient.getUrl('ScheduledTasks'));
+                return getTasks.then(function (tasks) {
+                    const task = (tasks || []).find(function (t) {
+                        return t.Key === PbjConfig.taskKey || t.Name === 'Peanut Butter & Jelly';
+                    });
+                    if (!task) {
+                        throw new Error('Scheduled task not found. Restart Jellyfin after installing the plugin.');
+                    }
+                    if (ApiClient.startScheduledTask) {
+                        return ApiClient.startScheduledTask(task.Id);
+                    }
+                    return ApiClient.ajax({
+                        type: 'POST',
+                        url: ApiClient.getUrl('ScheduledTasks/Running/' + task.Id)
                     });
                 });
+            }
+
+            document.querySelector('#PbjConfigPage').addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(PbjConfig.pluginUniqueId).then(function (config) {
+                    applyConfig(config);
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            document.querySelector('#PbjConfigForm').addEventListener('submit', function (e) {
                 e.preventDefault();
+                Dashboard.showLoadingMsg();
+                saveConfig().then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                }).catch(function () {
+                    Dashboard.hideLoadingMsg();
+                });
                 return false;
+            });
+
+            document.querySelector('#PbjRunNow').addEventListener('click', function () {
+                const status = document.querySelector('#PbjRunNowStatus');
+                Dashboard.showLoadingMsg();
+                saveConfig().then(function () {
+                    return startTask();
+                }).then(function () {
+                    Dashboard.hideLoadingMsg();
+                    status.textContent = 'Running. Dashboard → Scheduled Tasks to watch progress or cancel.';
+                }).catch(function (err) {
+                    Dashboard.hideLoadingMsg();
+                    status.textContent = (err && err.message) ? err.message : 'Could not start the task.';
+                });
             });
         </script>
     </div>

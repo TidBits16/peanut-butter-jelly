@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Jellyfin.Data.Enums;
+using Jellyfin.Plugin.PeanutButterJelly.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Library;
@@ -55,7 +56,7 @@ public class TaggerEngine
 
     public async Task RunAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
-        var cfg = Plugin.Instance?.Configuration ?? new Configuration.PluginConfiguration();
+        var cfg = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         var force = cfg.Force;
         var workers = cfg.Workers <= 0 ? Environment.ProcessorCount : cfg.Workers;
         workers = Math.Clamp(workers, 1, Math.Max(1, Environment.ProcessorCount));
@@ -128,7 +129,7 @@ public class TaggerEngine
             cancellationToken.ThrowIfCancellationRequested();
             var match = lookups.GetValueOrDefault((g.Key.Item1, g.Key.Item2)) ?? new DeezerAlbumMatch();
             var items = g.ToList();
-            if (!cfg.TagAlbums && !cfg.TagTracks && !cfg.FetchLyrics)
+            if (!cfg.TagAlbums && !cfg.TagTracks && !cfg.WriteLyrics)
             {
                 continue;
             }
@@ -284,12 +285,12 @@ public class TaggerEngine
 
         progress.Report(50);
 
-        if (cfg.FetchArtists && artists.Count > 0)
+        if ((cfg.WritePhotos || cfg.WriteBios) && artists.Count > 0)
         {
             var jobs = artists.Values.Where(a => !SkipMeta(a.Name) && a.Id != Guid.Empty).Select(a =>
             {
-                var needPhoto = force || !a.HasImage(ImageType.Primary);
-                var needBio = force || string.IsNullOrWhiteSpace(a.Overview);
+                var needPhoto = cfg.WritePhotos && (force || !a.HasImage(ImageType.Primary));
+                var needBio = cfg.WriteBios && (force || string.IsNullOrWhiteSpace(a.Overview));
                 return (Artist: a, NeedPhoto: needPhoto, NeedBio: needBio);
             }).Where(j => j.NeedPhoto || j.NeedBio).ToList();
 
@@ -300,7 +301,7 @@ public class TaggerEngine
                 try
                 {
                     var picture = string.Empty;
-                    if (job.NeedPhoto)
+                    if (job.NeedPhoto && Providers.Enabled(cfg.EffectivePhotoProviders, Providers.Deezer))
                     {
                         artistPhotos.TryGetValue(job.Artist.Name, out picture!);
                         picture ??= string.Empty;
@@ -314,7 +315,7 @@ public class TaggerEngine
                     BioMatch bio = new();
                     if (job.NeedBio)
                     {
-                        bio = await _bios.LookupAsync(job.Artist.Name, cancellationToken).ConfigureAwait(false);
+                        bio = await _bios.LookupAsync(job.Artist.Name, cfg.EffectiveBioProviders, cancellationToken).ConfigureAwait(false);
                     }
 
                     if (picture.Length == 0 && bio.Overview.Length == 0)
@@ -341,7 +342,7 @@ public class TaggerEngine
 
         progress.Report(70);
 
-        if (cfg.FetchLyrics && !lyricsJobs.IsEmpty)
+        if (cfg.WriteLyrics && !lyricsJobs.IsEmpty && Providers.Enabled(cfg.EffectiveLyricProviders, Providers.LrcLib))
         {
             var ids = lyricsJobs.Keys.ToList();
             var lyricDone = 0;
@@ -523,7 +524,7 @@ public class TaggerEngine
 
         if (dirty)
         {
-            await _library.UpdateItemAsync(item, item.GetParent(), ItemUpdateType.MetadataEdit, cancellationToken).ConfigureAwait(false);
+            await _library.UpdateItemAsync(item, item.GetParent() ?? item, ItemUpdateType.MetadataEdit, cancellationToken).ConfigureAwait(false);
         }
 
         if (!string.IsNullOrEmpty(p.LyricsText) && item is Audio lyricItem)
@@ -544,14 +545,14 @@ public class TaggerEngine
 
                 await using var stream = new MemoryStream(got.Data);
                 await _providers.SaveImage(item, stream, mime, ImageType.Primary, null, cancellationToken).ConfigureAwait(false);
-                await _library.UpdateItemAsync(item, item.GetParent(), ItemUpdateType.ImageUpdate, cancellationToken).ConfigureAwait(false);
+                await _library.UpdateItemAsync(item, item.GetParent() ?? item, ItemUpdateType.ImageUpdate, cancellationToken).ConfigureAwait(false);
             }
         }
     }
 
-    private static void RememberLyrics(Audio item, ConcurrentDictionary<Guid, LyricsJob> jobs, bool force, Configuration.PluginConfiguration cfg, IReadOnlyList<string>? extra = null, string? album = null)
+    private static void RememberLyrics(Audio item, ConcurrentDictionary<Guid, LyricsJob> jobs, bool force, PluginConfiguration cfg, IReadOnlyList<string>? extra = null, string? album = null)
     {
-        if (!cfg.FetchLyrics || item.Id == Guid.Empty || jobs.ContainsKey(item.Id))
+        if (!cfg.WriteLyrics || item.Id == Guid.Empty || jobs.ContainsKey(item.Id))
         {
             return;
         }

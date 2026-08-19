@@ -51,7 +51,7 @@ This is a normal Jellyfin plugin. You add **this repo** as a plugin catalog, the
 
 Then: **Dashboard → Plugins → Peanut Butter & Jelly** for toggles, and **Dashboard → Scheduled Tasks → Peanut Butter & Jelly** to run it (default every 24 hours).
 
-Built for **Jellyfin 10.10.x**. Releases are versioned zips (`dll` + `meta.json`) attached to [GitHub Releases](https://github.com/TidBits16/peanut-butter-jelly/releases).
+Built for **Jellyfin 10.11.x**. Releases are versioned zips (`dll` + `meta.json`) attached to [GitHub Releases](https://github.com/TidBits16/peanut-butter-jelly/releases).
 
 <details>
 <summary>Sideload a zip by hand</summary>

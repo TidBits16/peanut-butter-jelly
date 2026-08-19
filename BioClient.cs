@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Jellyfin.Plugin.PeanutButterJelly.Configuration;
 
 namespace Jellyfin.Plugin.PeanutButterJelly;
 
@@ -40,15 +41,18 @@ public class BioClient
 
     public int CacheHits => _http.CacheHits;
 
-    public async Task<BioMatch> LookupAsync(string name, CancellationToken cancellationToken)
+    public async Task<BioMatch> LookupAsync(string name, IReadOnlyList<string> sources, CancellationToken cancellationToken)
     {
         var want = name.Trim();
-        if (want.Length == 0)
+        var useAudioDb = Providers.Enabled(sources, Providers.AudioDb);
+        var useWikipedia = Providers.Enabled(sources, Providers.Wikipedia);
+        var useWikidata = Providers.Enabled(sources, Providers.Wikidata);
+        if (want.Length == 0 || (!useAudioDb && !useWikipedia && !useWikidata))
         {
             return new BioMatch();
         }
 
-        var key = "bio/v3|" + want.ToLowerInvariant();
+        var key = "bio/v4|" + want.ToLowerInvariant() + "|" + string.Join(",", sources.OrderBy(s => s, StringComparer.OrdinalIgnoreCase));
         if (_cache.TryGet(key, Ttl, out var cached))
         {
             if (JsonUtil.Bool(cached, "_miss") == true)
@@ -67,20 +71,27 @@ public class BioClient
         }
 
         BioMatch? match = null;
-        foreach (var q in queries)
+        if (useAudioDb)
         {
-            var payload = await _http.GetJsonAsync("audiodb/search", AudioDb + "/search.php", new Dictionary<string, string> { ["s"] = q }, Ttl, cancellationToken).ConfigureAwait(false);
-            if (payload is { } p && PickAudioDb(want, p) is { } m)
+            foreach (var q in queries)
             {
-                match = m;
-                break;
+                var payload = await _http.GetJsonAsync("audiodb/search", AudioDb + "/search.php", new Dictionary<string, string> { ["s"] = q }, Ttl, cancellationToken).ConfigureAwait(false);
+                if (payload is { } p && PickAudioDb(want, p) is { } m)
+                {
+                    match = m;
+                    break;
+                }
             }
         }
 
-        if (match is null)
+        if (match is null && useWikipedia)
         {
-            match = await FromWikipediaAsync(want, cancellationToken).ConfigureAwait(false)
-                ?? await FromWikidataAsync(want, cancellationToken).ConfigureAwait(false);
+            match = await FromWikipediaAsync(want, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (match is null && useWikidata)
+        {
+            match = await FromWikidataAsync(want, cancellationToken).ConfigureAwait(false);
         }
 
         if (match is { Overview.Length: > 0 })

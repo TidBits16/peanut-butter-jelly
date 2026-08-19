@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "4.1.0.0",
+        "changelog": "Jellyfin 10.11 support. Run now, provider checklists, and album vs song artists as separate fields.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/TidBits16/peanut-butter-jelly/releases/download/v4.1.0.0/peanut-butter-jelly_4.1.0.0.zip",
+        "checksum": "a318f632b9f5e0067d1eca9d3da3c901",
+        "timestamp": "2026-08-19T19:57:49Z"
+      },
+      {
         "version": "4.0.1.0",
         "changelog": "Catalog install. Album artists and song artists are written to separate Jellyfin fields.",
         "targetAbi": "10.10.7.0",
