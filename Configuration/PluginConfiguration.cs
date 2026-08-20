@@ -58,4 +58,26 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool WritePhotos => EffectivePhotoProviders.Count > 0;
 
     public bool WriteBios => EffectiveBioProviders.Count > 0;
+
+    public bool WriteExplicitTags { get; set; } = true;
+
+    public string ExplicitTags { get; set; } = "Explicit";
+
+    public bool RenameExplicitTitles { get; set; } = true;
+
+    public string ExplicitMark { get; set; } = " 🅴";
+
+    /// <summary>append or prepend.</summary>
+    public string ExplicitMarkPlacement { get; set; } = "append";
+
+    public bool RewriteExplicitTitlesEveryRun { get; set; }
+
+    public IReadOnlyList<string> EffectiveExplicitTags
+        => (ExplicitTags ?? string.Empty)
+            .Split([',', ';', '\n'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    public bool PrependExplicitMark
+        => string.Equals(ExplicitMarkPlacement, "prepend", StringComparison.OrdinalIgnoreCase);
 }

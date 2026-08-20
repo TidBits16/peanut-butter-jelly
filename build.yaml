@@ -1,13 +1,15 @@
 name: "Peanut Butter & Jelly"
 guid: "dca13c74-4ea4-4a69-b717-82a06a400c31"
-version: "4.1.1.0"
+version: "4.1.2.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-overview: "Deezer genres, album artists, song artists, explicit, LRCLIB lyrics, bios/photos, playlist repair"
-description: "Scheduled-task music tagger that fills Jellyfin metadata from Deezer, LRCLIB, AudioDB, and Wikipedia."
+overview: "Deezer → Jellyfin sync: genres, artists, dates, covers, explicit, plus optional lyrics and bios"
+description: "Scheduled-task music tagger that keeps Jellyfin in sync with the Deezer API."
 category: "Metadata"
 owner: "TidBits16"
 artifacts:
   - "Jellyfin.Plugin.PeanutButterJelly.dll"
 changelog: >
-  Fix LRCLIB search returning a JSON array and aborting the scheduled task.
+  Deezer metadata always syncs when it differs (genres, artists, dates,
+  track numbers, labels, IDs, covers). Explicit tagging stays optional.
+  Lyrics and bios remain extra sources you can turn off.

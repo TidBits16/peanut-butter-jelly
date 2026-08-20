@@ -132,25 +132,75 @@ public static class Genres
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var name in names)
         {
-            var p = Pretty(name);
-            if (p.Length == 0)
+            foreach (var part in SplitParts(name))
             {
-                continue;
-            }
+                var p = Pretty(part);
+                if (p.Length == 0)
+                {
+                    continue;
+                }
 
-            var k = NormKey(p);
-            if (!seen.Add(k))
-            {
-                continue;
-            }
+                var k = NormKey(p);
+                if (!seen.Add(k))
+                {
+                    continue;
+                }
 
-            output.Add(p);
-            if (max > 0 && output.Count >= max)
-            {
-                break;
+                output.Add(p);
+                if (max > 0 && output.Count >= max)
+                {
+                    return output;
+                }
             }
         }
 
         return output;
+    }
+
+    /// <summary>
+    /// Jellyfin wants one genre per array entry. Old tags often packed several into one string with ";".
+    /// </summary>
+    public static IEnumerable<string> SplitParts(string name)
+    {
+        var raw = name.Trim();
+        if (raw.Length == 0)
+        {
+            yield break;
+        }
+
+        if (raw.IndexOfAny([';', '|']) < 0)
+        {
+            yield return raw;
+            yield break;
+        }
+
+        foreach (var part in raw.Split([';', '|'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            yield return part;
+        }
+    }
+
+    public static bool NeedsRewrite(IReadOnlyList<string>? raw)
+    {
+        if (raw is null || raw.Count == 0)
+        {
+            return false;
+        }
+
+        var cleaned = PrettyList(raw, 0);
+        if (cleaned.Count != raw.Count)
+        {
+            return true;
+        }
+
+        for (var i = 0; i < raw.Count; i++)
+        {
+            if (!raw[i].Equals(cleaned[i], StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

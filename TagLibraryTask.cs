@@ -23,7 +23,7 @@ public class TagLibraryTask : IScheduledTask
     public string Key => "PeanutButterJellyTagLibrary";
 
     public string Description =>
-        "Apply Deezer genres/artists/explicit, LRCLIB lyrics, artist bios/photos, and playlist repair.";
+        "Sync Jellyfin from Deezer (genres, artists, dates, track numbers, covers, explicit), plus optional lyrics, bios, and playlist repair.";
 
     public string Category => "Library";
 

@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Concurrent;
+using System.Globalization;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.PeanutButterJelly.Configuration;
 using MediaBrowser.Controller.Entities;
@@ -60,6 +62,9 @@ public class TaggerEngine
         var force = cfg.Force;
         var workers = cfg.Workers <= 0 ? Environment.ProcessorCount : cfg.Workers;
         workers = Math.Clamp(workers, 1, Math.Max(1, Environment.ProcessorCount));
+        Titles.UseStyle(cfg.ExplicitMark, cfg.PrependExplicitMark);
+        try
+        {
         using var gate = new SemaphoreSlim(workers, workers);
 
         var tracks = _library.GetItemList(new InternalItemsQuery
@@ -122,7 +127,7 @@ public class TaggerEngine
         }
 
         var lyricsJobs = new ConcurrentDictionary<Guid, LyricsJob>();
-        var artistPhotos = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var artistDeezer = new ConcurrentDictionary<string, DeezerArtistInfo>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var g in grouped)
         {
@@ -136,13 +141,42 @@ public class TaggerEngine
 
             if (match.AlbumId == 0)
             {
+                if (cfg.TagAlbums)
+                {
+                    foreach (var albumId in items.Select(t => t.AlbumEntity?.Id ?? Guid.Empty).Where(id => id != Guid.Empty).Distinct())
+                    {
+                        albums.TryGetValue(albumId, out var albumItem);
+                        if (GenreWant([], albumItem?.Genres) is not { } genres)
+                        {
+                            continue;
+                        }
+
+                        Queue(new Patch { ItemId = albumId, Item = albumItem, Genres = genres });
+                    }
+                }
+
                 foreach (var item in items)
                 {
                     RememberLyrics(item, lyricsJobs, force, cfg);
+                    List<string>? addTags = null;
                     if (cfg.TagTracks && !HasTag(item, Titles.NoMatchTag))
                     {
-                        Queue(new Patch { ItemId = item.Id, Item = item, AddTags = [Titles.NoMatchTag] });
+                        addTags = [Titles.NoMatchTag];
                     }
+
+                    var genres = cfg.TagTracks ? GenreWant([], item.Genres) : null;
+                    if (addTags is null && genres is null)
+                    {
+                        continue;
+                    }
+
+                    Queue(new Patch
+                    {
+                        ItemId = item.Id,
+                        Item = item,
+                        Genres = genres,
+                        AddTags = addTags ?? []
+                    });
                 }
 
                 continue;
@@ -150,9 +184,9 @@ public class TaggerEngine
 
             foreach (var info in match.ArtistInfos)
             {
-                if (info.Picture.Length > 0 && !SkipMeta(info.Name))
+                if (!SkipMeta(info.Name))
                 {
-                    artistPhotos.TryAdd(info.Name, info.Picture);
+                    artistDeezer.TryAdd(info.Name, info);
                 }
             }
 
@@ -172,37 +206,23 @@ public class TaggerEngine
                         albumName = items[0].Album ?? string.Empty;
                     }
 
-                    var marked = Titles.HasExplicitMark(albumName);
-                    var tagged = albumItem is not null && HasTag(albumItem, "Explicit");
+                    var tagged = albumItem is not null && HasAnyTag(albumItem, cfg.EffectiveExplicitTags);
                     var needUntag = tagged;
-                    var needMark = match.Explicit == true && !marked;
-                    var needUnmark = match.Explicit == false && marked;
-                    var gotGenres = albumItem is null ? [] : Genres.PrettyList(albumItem.Genres, 0);
-                    var needGenres = match.Genres.Count > 0 && ShouldWrite(gotGenres.Count > 0, !gotGenres.SequenceEqual(match.Genres), force);
-                    var gotArtists = albumItem?.Artists.ToList() ?? [];
-                    var gotAlbumArtists = albumItem?.AlbumArtists.ToList() ?? [];
-                    var needAlbumArtists = wantAlbumArtists.Count > 0 && ShouldWrite(
-                        gotAlbumArtists.Count > 0,
-                        !Titles.SameNames(gotAlbumArtists, wantAlbumArtists),
-                        force);
-                    var needSongArtists = wantAlbumSongArtists.Count > 0 && ShouldWrite(
-                        gotArtists.Count > 0,
-                        !Titles.SameNames(gotArtists, wantAlbumSongArtists),
-                        force);
+                    var nameWrite = TitlePatch(albumName, match.Explicit, cfg);
+                    var genreWrite = GenreWant(match.Genres, albumItem?.Genres);
+                    var needAlbumArtists = NeedList(wantAlbumArtists, albumItem?.AlbumArtists.ToList() ?? []);
+                    var needSongArtists = NeedList(wantAlbumSongArtists, albumItem?.Artists.ToList() ?? []);
+                    var needYear = NeedInt(match.Year, albumItem?.ProductionYear);
+                    var needDate = NeedDate(match.ReleaseDate, albumItem?.PremiereDate);
+                    var needLabel = match.Label.Length > 0 && NeedList([match.Label], albumItem?.Studios.ToList() ?? []);
+                    var needDeezerId = NeedProvider(albumItem, "Deezer", match.AlbumId);
+                    var needUpc = NeedProvider(albumItem, "UPC", match.Upc);
+                    var needCover = match.CoverUrl.Length > 0 && albumItem is not null && (force || !albumItem.HasImage(ImageType.Primary));
 
-                    if (!needGenres && !needAlbumArtists && !needSongArtists && !needMark && !needUnmark && !needUntag)
+                    if (genreWrite is null && !needAlbumArtists && !needSongArtists && nameWrite is null && !needUntag
+                        && !needYear && !needDate && !needLabel && !needDeezerId && !needUpc && !needCover)
                     {
                         continue;
-                    }
-
-                    string? nameWrite = null;
-                    if (needMark)
-                    {
-                        nameWrite = Titles.DesiredTitle(albumName, true);
-                    }
-                    else if (needUnmark)
-                    {
-                        nameWrite = Titles.DesiredTitle(albumName, false);
                     }
 
                     Queue(new Patch
@@ -210,10 +230,16 @@ public class TaggerEngine
                         ItemId = albumId,
                         Item = albumItem,
                         Name = nameWrite,
-                        Genres = needGenres ? match.Genres : null,
+                        Genres = genreWrite,
                         Artists = needSongArtists ? wantAlbumSongArtists : null,
                         AlbumArtists = needAlbumArtists ? wantAlbumArtists : null,
-                        Explicit = needUntag ? false : null
+                        Explicit = needUntag ? false : null,
+                        ProductionYear = needYear ? match.Year : null,
+                        PremiereDate = needDate ? match.ReleaseDate : null,
+                        Studios = needLabel ? [match.Label] : null,
+                        DeezerId = needDeezerId ? match.AlbumId.ToString(CultureInfo.InvariantCulture) : null,
+                        Upc = needUpc ? match.Upc : null,
+                        ImageUrl = needCover ? match.CoverUrl : string.Empty
                     });
                 }
             }
@@ -221,7 +247,7 @@ public class TaggerEngine
             foreach (var item in items)
             {
                 var dzTrack = DeezerClient.MatchTrack(item.Name, match.Tracks);
-                var tagged = HasTag(item, "Explicit");
+                var tagged = HasAnyTag(item, cfg.EffectiveExplicitTags);
                 var marked = Titles.HasExplicitMark(item.Name);
                 List<string>? addTags = null;
                 List<string>? removeTags = null;
@@ -242,31 +268,42 @@ public class TaggerEngine
 
                 var wantE = cfg.TagTracks && dzTrack?.Explicit == true;
                 var clearE = cfg.TagTracks && dzTrack?.Explicit == false && (tagged || marked);
-                var needE = wantE && (!tagged || !marked);
+                var newName = cfg.TagTracks ? TitlePatch(item.Name, dzTrack?.Explicit, cfg) : null;
+                bool? explicitWrite = null;
+                if (cfg.TagTracks && cfg.WriteExplicitTags && cfg.EffectiveExplicitTags.Count > 0)
+                {
+                    if (wantE && !tagged)
+                    {
+                        explicitWrite = true;
+                    }
+                    else if (clearE && tagged)
+                    {
+                        explicitWrite = false;
+                    }
+                    else if (wantE && cfg.EffectiveExplicitTags.Any(t => !HasTag(item, t)))
+                    {
+                        explicitWrite = true;
+                    }
+                }
                 var wantSongArtists = dzTrack is { Artists.Count: > 0 } ? dzTrack.Artists : [];
                 var lyricsNames = Titles.DistinctNames(wantSongArtists.Concat(wantAlbumArtists));
                 RememberLyrics(item, lyricsJobs, force, cfg, lyricsNames, g.Key.Item2);
-                var needSongArtists = cfg.TagTracks && wantSongArtists.Count > 0 && ShouldWrite(
-                    item.Artists.Count > 0,
-                    !Titles.SameNames(item.Artists, wantSongArtists),
-                    force);
-                var needAlbumArtists = cfg.TagTracks && wantAlbumArtists.Count > 0 && ShouldWrite(
-                    item.AlbumArtists.Count > 0,
-                    !Titles.SameNames(item.AlbumArtists, wantAlbumArtists),
-                    force);
-                if (!needE && !clearE && !needSongArtists && !needAlbumArtists && addTags is null && removeTags is null)
+                var needSongArtists = cfg.TagTracks && NeedList(wantSongArtists, item.Artists);
+                var needAlbumArtists = cfg.TagTracks && NeedList(wantAlbumArtists, item.AlbumArtists);
+                var genreWrite = cfg.TagTracks ? GenreWant(match.Genres, item.Genres) : null;
+                var trackRelease = dzTrack?.ReleaseDate ?? match.ReleaseDate;
+                var trackYear = trackRelease is { Year: >= 1000 } d ? d.Year : (int?)null;
+                var needYear = cfg.TagTracks && NeedInt(trackYear, item.ProductionYear);
+                var needDate = cfg.TagTracks && NeedDate(trackRelease, item.PremiereDate);
+                var needIndex = cfg.TagTracks && NeedInt(dzTrack?.TrackPosition, item.IndexNumber);
+                var needDisc = cfg.TagTracks && NeedInt(dzTrack?.DiskNumber, item.ParentIndexNumber);
+                var needDeezerId = cfg.TagTracks && NeedProvider(item, "Deezer", dzTrack?.TrackId ?? 0);
+                var needIsrc = cfg.TagTracks && NeedProvider(item, "ISRC", dzTrack?.Isrc);
+                if (newName is null && explicitWrite is null && !needSongArtists && !needAlbumArtists
+                    && genreWrite is null && !needYear && !needDate && !needIndex && !needDisc
+                    && !needDeezerId && !needIsrc && addTags is null && removeTags is null)
                 {
                     continue;
-                }
-
-                string? newName = null;
-                if (needE)
-                {
-                    newName = Titles.DesiredTitle(item.Name, true);
-                }
-                else if (clearE && marked)
-                {
-                    newName = Titles.DesiredTitle(item.Name, false);
                 }
 
                 Queue(new Patch
@@ -274,25 +311,34 @@ public class TaggerEngine
                     ItemId = item.Id,
                     Item = item,
                     Name = newName,
+                    Genres = genreWrite,
                     Artists = needSongArtists ? wantSongArtists : null,
                     AlbumArtists = needAlbumArtists ? wantAlbumArtists : null,
-                    Explicit = needE ? true : clearE && tagged ? false : null,
+                    Explicit = explicitWrite,
                     AddTags = addTags ?? [],
-                    RemoveTags = removeTags ?? []
+                    RemoveTags = removeTags ?? [],
+                    ProductionYear = needYear ? trackYear : null,
+                    PremiereDate = needDate ? trackRelease : null,
+                    IndexNumber = needIndex ? dzTrack!.TrackPosition : null,
+                    ParentIndexNumber = needDisc ? dzTrack!.DiskNumber : null,
+                    DeezerId = needDeezerId ? dzTrack!.TrackId.ToString(CultureInfo.InvariantCulture) : null,
+                    Isrc = needIsrc ? dzTrack!.Isrc : null
                 });
             }
         }
 
         progress.Report(50);
 
-        if ((cfg.WritePhotos || cfg.WriteBios) && artists.Count > 0)
+        if ((cfg.WritePhotos || cfg.WriteBios || cfg.TagAlbums || cfg.TagTracks) && artists.Count > 0)
         {
             var jobs = artists.Values.Where(a => !SkipMeta(a.Name) && a.Id != Guid.Empty).Select(a =>
             {
+                artistDeezer.TryGetValue(a.Name, out var info);
                 var needPhoto = cfg.WritePhotos && (force || !a.HasImage(ImageType.Primary));
                 var needBio = cfg.WriteBios && (force || string.IsNullOrWhiteSpace(a.Overview));
-                return (Artist: a, NeedPhoto: needPhoto, NeedBio: needBio);
-            }).Where(j => j.NeedPhoto || j.NeedBio).ToList();
+                var needId = info is { ArtistId: > 0 } && a.GetProviderId("Deezer") != info.ArtistId.ToString(CultureInfo.InvariantCulture);
+                return (Artist: a, Info: info, NeedPhoto: needPhoto, NeedBio: needBio, NeedId: needId);
+            }).Where(j => j.NeedPhoto || j.NeedBio || j.NeedId).ToList();
 
             var artistDone = 0;
             await Task.WhenAll(jobs.Select(async job =>
@@ -301,14 +347,18 @@ public class TaggerEngine
                 try
                 {
                     var picture = string.Empty;
+                    var info = job.Info;
                     if (job.NeedPhoto && Providers.Enabled(cfg.EffectivePhotoProviders, Providers.Deezer))
                     {
-                        artistPhotos.TryGetValue(job.Artist.Name, out picture!);
-                        picture ??= string.Empty;
+                        picture = info?.Picture ?? string.Empty;
                         if (picture.Length == 0)
                         {
                             var found = await _deezer.SearchArtistAsync(job.Artist.Name, cancellationToken).ConfigureAwait(false);
-                            picture = found?.Picture ?? string.Empty;
+                            if (found is not null)
+                            {
+                                info = found;
+                                picture = found.Picture;
+                            }
                         }
                     }
 
@@ -318,7 +368,11 @@ public class TaggerEngine
                         bio = await _bios.LookupAsync(job.Artist.Name, cfg.EffectiveBioProviders, cancellationToken).ConfigureAwait(false);
                     }
 
-                    if (picture.Length == 0 && bio.Overview.Length == 0)
+                    var deezerId = info is { ArtistId: > 0 }
+                        ? info.ArtistId.ToString(CultureInfo.InvariantCulture)
+                        : null;
+                    var writeId = deezerId is not null && job.Artist.GetProviderId("Deezer") != deezerId;
+                    if (picture.Length == 0 && bio.Overview.Length == 0 && !writeId)
                     {
                         return;
                     }
@@ -328,7 +382,8 @@ public class TaggerEngine
                         ItemId = job.Artist.Id,
                         Item = job.Artist,
                         ImageUrl = picture,
-                        Overview = bio.Overview.Length > 0 ? bio.Overview : null
+                        Overview = bio.Overview.Length > 0 ? bio.Overview : null,
+                        DeezerId = writeId ? deezerId : null
                     });
                 }
                 finally
@@ -452,6 +507,11 @@ public class TaggerEngine
             _lrclib.CacheHits,
             _bios.HttpCount,
             _bios.CacheHits);
+        }
+        finally
+        {
+            Titles.ResetStyle();
+        }
     }
 
     private async Task ApplyPatchAsync(Patch p, CancellationToken cancellationToken)
@@ -493,14 +553,69 @@ public class TaggerEngine
             dirty = true;
         }
 
+        if (p.ProductionYear is not null && item.ProductionYear != p.ProductionYear)
+        {
+            item.ProductionYear = p.ProductionYear;
+            dirty = true;
+        }
+
+        if (p.PremiereDate is not null && item.PremiereDate?.Date != p.PremiereDate.Value.Date)
+        {
+            item.PremiereDate = p.PremiereDate;
+            dirty = true;
+        }
+
+        if (p.IndexNumber is not null && item.IndexNumber != p.IndexNumber)
+        {
+            item.IndexNumber = p.IndexNumber;
+            dirty = true;
+        }
+
+        if (p.ParentIndexNumber is not null && item.ParentIndexNumber != p.ParentIndexNumber)
+        {
+            item.ParentIndexNumber = p.ParentIndexNumber;
+            dirty = true;
+        }
+
+        if (p.Studios is not null)
+        {
+            item.Studios = p.Studios.ToArray();
+            dirty = true;
+        }
+
+        if (p.DeezerId is not null && item.GetProviderId("Deezer") != p.DeezerId)
+        {
+            item.SetProviderId("Deezer", p.DeezerId);
+            dirty = true;
+        }
+
+        if (p.Isrc is not null && !string.Equals(item.GetProviderId("ISRC"), p.Isrc, StringComparison.OrdinalIgnoreCase))
+        {
+            item.SetProviderId("ISRC", p.Isrc);
+            dirty = true;
+        }
+
+        if (p.Upc is not null && !string.Equals(item.GetProviderId("UPC"), p.Upc, StringComparison.OrdinalIgnoreCase))
+        {
+            item.SetProviderId("UPC", p.Upc);
+            dirty = true;
+        }
+
         var tags = item.Tags.ToList();
         var tagDirty = false;
         if (p.Explicit is not null)
         {
-            tags = tags.Where(t => !t.Equals("Explicit", StringComparison.OrdinalIgnoreCase)).ToList();
+            var names = Plugin.Instance?.Configuration.EffectiveExplicitTags ?? ["Explicit"];
+            tags = tags.Where(t => !names.Any(n => t.Equals(n, StringComparison.OrdinalIgnoreCase))).ToList();
             if (p.Explicit.Value)
             {
-                tags.Add("Explicit");
+                foreach (var n in names)
+                {
+                    if (!tags.Any(t => t.Equals(n, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        tags.Add(n);
+                    }
+                }
             }
 
             tagDirty = true;
@@ -587,7 +702,76 @@ public class TaggerEngine
         jobs[item.Id] = new LyricsJob(item, title, alb, arts, duration);
     }
 
-    private static bool ShouldWrite(bool present, bool differs, bool force) => (force && differs) || (!force && !present);
+    private static bool HasAnyTag(BaseItem item, IReadOnlyList<string> names)
+        => names.Any(n => HasTag(item, n));
+
+    private static string? TitlePatch(string current, bool? deezerExplicit, PluginConfiguration cfg)
+    {
+        if (!cfg.RenameExplicitTitles || deezerExplicit is null)
+        {
+            return null;
+        }
+
+        var desired = Titles.DesiredTitle(current, deezerExplicit.Value);
+        if (current == desired)
+        {
+            return null;
+        }
+
+        if (cfg.RewriteExplicitTitlesEveryRun)
+        {
+            return desired;
+        }
+
+        var marked = Titles.HasExplicitMark(current);
+        if (deezerExplicit.Value && !marked)
+        {
+            return desired;
+        }
+
+        if (!deezerExplicit.Value && marked)
+        {
+            return desired;
+        }
+
+        return null;
+    }
+
+    private static List<string>? GenreWant(IReadOnlyList<string> deezer, IReadOnlyList<string>? current)
+    {
+        var raw = current ?? [];
+        if (deezer.Count > 0)
+        {
+            return NeedList(deezer, raw) || Genres.NeedsRewrite(raw) ? deezer.ToList() : null;
+        }
+
+        if (!Genres.NeedsRewrite(raw))
+        {
+            return null;
+        }
+
+        var cleaned = Genres.PrettyList(raw, 0);
+        return cleaned.Count > 0 ? cleaned : null;
+    }
+
+    private static bool NeedList(IReadOnlyList<string> want, IReadOnlyList<string> got)
+        => want.Count > 0 && !Titles.SameNames(want, got);
+
+    private static bool NeedInt(int? want, int? got)
+        => want is > 0 && got != want;
+
+    private static bool NeedDate(DateTime? want, DateTime? got)
+        => want is { } d && got?.Date != d.Date;
+
+    private static bool NeedProvider(BaseItem? item, string key, int id)
+        => item is not null && id > 0 && item.GetProviderId(key) != id.ToString(CultureInfo.InvariantCulture);
+
+    private static bool NeedProvider(BaseItem? item, string key, string? value)
+    {
+        var v = value?.Trim() ?? string.Empty;
+        return item is not null && v.Length > 0
+            && !string.Equals(item.GetProviderId(key), v, StringComparison.OrdinalIgnoreCase);
+    }
 
     private static bool SkipMeta(string name)
     {
@@ -654,10 +838,28 @@ public class TaggerEngine
 
         public string ImageUrl { get; init; } = string.Empty;
 
+        public int? ProductionYear { get; init; }
+
+        public DateTime? PremiereDate { get; init; }
+
+        public int? IndexNumber { get; init; }
+
+        public int? ParentIndexNumber { get; init; }
+
+        public List<string>? Studios { get; init; }
+
+        public string? DeezerId { get; init; }
+
+        public string? Isrc { get; init; }
+
+        public string? Upc { get; init; }
+
         public bool Empty =>
             Genres is null && Artists is null && AlbumArtists is null && Explicit is null && Name is null
             && AddTags.Count == 0 && RemoveTags.Count == 0 && Overview is null
-            && LyricsText.Length == 0 && ImageUrl.Length == 0;
+            && LyricsText.Length == 0 && ImageUrl.Length == 0
+            && ProductionYear is null && PremiereDate is null && IndexNumber is null && ParentIndexNumber is null
+            && Studios is null && DeezerId is null && Isrc is null && Upc is null;
 
         public Patch Merge(Patch src) => new()
         {
@@ -673,7 +875,15 @@ public class TaggerEngine
             Overview = src.Overview ?? Overview,
             LyricsText = src.LyricsText.Length > 0 ? src.LyricsText : LyricsText,
             LyricsFormat = src.LyricsText.Length > 0 ? src.LyricsFormat : LyricsFormat,
-            ImageUrl = src.ImageUrl.Length > 0 ? src.ImageUrl : ImageUrl
+            ImageUrl = src.ImageUrl.Length > 0 ? src.ImageUrl : ImageUrl,
+            ProductionYear = src.ProductionYear ?? ProductionYear,
+            PremiereDate = src.PremiereDate ?? PremiereDate,
+            IndexNumber = src.IndexNumber ?? IndexNumber,
+            ParentIndexNumber = src.ParentIndexNumber ?? ParentIndexNumber,
+            Studios = src.Studios ?? Studios,
+            DeezerId = src.DeezerId ?? DeezerId,
+            Isrc = src.Isrc ?? Isrc,
+            Upc = src.Upc ?? Upc
         };
     }
 }

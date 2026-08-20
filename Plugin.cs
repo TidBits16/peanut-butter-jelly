@@ -24,7 +24,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     public override string Name => "Peanut Butter & Jelly";
 
     public override string Description =>
-        "Deezer Music API genres, artists, explicit marks, LRCLIB lyrics, artist bios/photos, and playlist repair.";
+        "Syncs Jellyfin music from the Deezer API (genres, artists, dates, covers, explicit), plus optional LRCLIB lyrics and Wikipedia bios.";
 
     public override Guid Id => PluginGuid;
 

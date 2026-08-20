@@ -11,6 +11,16 @@ public sealed class DeezerTrack
     public bool? Explicit { get; init; }
 
     public List<string> Artists { get; init; } = [];
+
+    public int TrackId { get; init; }
+
+    public string Isrc { get; init; } = string.Empty;
+
+    public int TrackPosition { get; init; }
+
+    public int DiskNumber { get; init; }
+
+    public DateTime? ReleaseDate { get; init; }
 }
 
 public sealed class DeezerArtistInfo
@@ -47,6 +57,16 @@ public sealed class DeezerAlbumMatch
     public List<DeezerTrack> Tracks { get; init; } = [];
 
     public bool? Explicit { get; init; }
+
+    public string CoverUrl { get; init; } = string.Empty;
+
+    public string Label { get; init; } = string.Empty;
+
+    public string Upc { get; init; } = string.Empty;
+
+    public DateTime? ReleaseDate { get; init; }
+
+    public int? Year => ReleaseDate is { Year: >= 1000 } d ? d.Year : null;
 }
 
 public class DeezerClient
@@ -82,7 +102,7 @@ public class DeezerClient
             }
         }
 
-        var cacheKey = $"deezer/album-match/v2|{key.Item1}|{key.Item2}";
+        var cacheKey = $"deezer/album-match/v3|{key.Item1}|{key.Item2}";
         if (_cache.TryGet(cacheKey, Ttl, out var disk))
         {
             var cached = MatchFromCache(disk);
@@ -423,7 +443,11 @@ public class DeezerClient
             Artists = Titles.DistinctNames(tracks.SelectMany(t => t.Artists)),
             ArtistInfos = infos,
             Tracks = tracks,
-            Explicit = ExplicitFrom(p, true)
+            Explicit = ExplicitFrom(p, true),
+            CoverUrl = CoverUrl(p),
+            Label = JsonUtil.Str(p, "label").Trim(),
+            Upc = JsonUtil.Str(p, "upc").Trim(),
+            ReleaseDate = ParseRelease(JsonUtil.Str(p, "release_date"))
         };
         lock (_gate)
         {
@@ -542,11 +566,22 @@ public class DeezerClient
             return null;
         }
 
+        var id = (int)JsonUtil.Num(detail, "id");
+        if (id != 0)
+        {
+            trackId = id;
+        }
+
         return new DeezerTrack
         {
             Title = title,
             Explicit = ExplicitFrom(detail, false) ?? ExplicitFrom(raw, false),
-            Artists = Titles.DistinctNames(ArtistInfos(detail).Select(i => i.Name))
+            Artists = Titles.DistinctNames(ArtistInfos(detail).Select(i => i.Name)),
+            TrackId = trackId,
+            Isrc = FirstNonEmpty(JsonUtil.Str(detail, "isrc"), JsonUtil.Str(raw, "isrc")),
+            TrackPosition = FirstPositive((int)JsonUtil.Num(detail, "track_position"), (int)JsonUtil.Num(raw, "track_position")),
+            DiskNumber = FirstPositive((int)JsonUtil.Num(detail, "disk_number"), (int)JsonUtil.Num(raw, "disk_number")),
+            ReleaseDate = ParseRelease(JsonUtil.Str(detail, "release_date")) ?? ParseRelease(JsonUtil.Str(raw, "release_date"))
         };
     }
 
@@ -614,6 +649,49 @@ public class DeezerClient
 
         return infos;
     }
+
+    private static string CoverUrl(JsonElement payload)
+    {
+        foreach (var k in new[] { "cover_xl", "cover_big", "cover_medium", "cover" })
+        {
+            var s = JsonUtil.Str(payload, k).Trim();
+            if (s.Length > 0)
+            {
+                return s;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static DateTime? ParseRelease(string raw)
+    {
+        var s = raw.Trim();
+        if (s.Length < 4 || s.StartsWith("0000", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) && d.Year is >= 1000 and <= 2100)
+        {
+            return d.Date;
+        }
+
+        if (int.TryParse(s.AsSpan(0, 4), NumberStyles.None, CultureInfo.InvariantCulture, out var y) && y is >= 1000 and <= 2100)
+        {
+            return new DateTime(y, 1, 1);
+        }
+
+        return null;
+    }
+
+    private static string FirstNonEmpty(string a, string b)
+    {
+        var x = a.Trim();
+        return x.Length > 0 ? x : b.Trim();
+    }
+
+    private static int FirstPositive(int a, int b) => a > 0 ? a : b;
 
     private static string PictureUrl(JsonElement payload)
     {
@@ -739,7 +817,11 @@ public class DeezerClient
             Explicit = Ex(raw),
             AlbumId = (int)JsonUtil.Num(raw, "album_id"),
             Genres = JsonUtil.Arr(raw, "genres").Select(x => x.GetString() ?? string.Empty).Where(s => s.Length > 0).ToList(),
-            Artists = Titles.DistinctNames(JsonUtil.Arr(raw, "artists").Select(x => x.GetString() ?? string.Empty))
+            Artists = Titles.DistinctNames(JsonUtil.Arr(raw, "artists").Select(x => x.GetString() ?? string.Empty)),
+            CoverUrl = JsonUtil.Str(raw, "cover"),
+            Label = JsonUtil.Str(raw, "label"),
+            Upc = JsonUtil.Str(raw, "upc"),
+            ReleaseDate = ParseRelease(JsonUtil.Str(raw, "release_date"))
         };
         foreach (var inf in JsonUtil.Arr(raw, "artist_infos"))
         {
@@ -758,7 +840,12 @@ public class DeezerClient
             {
                 Title = JsonUtil.Str(t, "title"),
                 Explicit = Ex(t),
-                Artists = Titles.DistinctNames(JsonUtil.Arr(t, "artists").Select(x => x.GetString() ?? string.Empty))
+                Artists = Titles.DistinctNames(JsonUtil.Arr(t, "artists").Select(x => x.GetString() ?? string.Empty)),
+                TrackId = (int)JsonUtil.Num(t, "track_id"),
+                Isrc = JsonUtil.Str(t, "isrc"),
+                TrackPosition = (int)JsonUtil.Num(t, "track_position"),
+                DiskNumber = (int)JsonUtil.Num(t, "disk_number"),
+                ReleaseDate = ParseRelease(JsonUtil.Str(t, "release_date"))
             });
         }
 
@@ -774,7 +861,11 @@ public class DeezerClient
                 Artists = Titles.DistinctNames(m.Tracks.SelectMany(t => t.Artists)),
                 ArtistInfos = m.ArtistInfos,
                 Tracks = m.Tracks,
-                Explicit = m.Explicit
+                Explicit = m.Explicit,
+                CoverUrl = m.CoverUrl,
+                Label = m.Label,
+                Upc = m.Upc,
+                ReleaseDate = m.ReleaseDate
             };
         }
 
@@ -791,7 +882,21 @@ public class DeezerClient
         ["album_artists"] = m.AlbumArtists,
         ["artists"] = m.Artists,
         ["explicit"] = m.Explicit,
+        ["cover"] = m.CoverUrl,
+        ["label"] = m.Label,
+        ["upc"] = m.Upc,
+        ["release_date"] = m.ReleaseDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
         ["artist_infos"] = m.ArtistInfos.Select(i => new { name = i.Name, artist_id = i.ArtistId, picture = i.Picture, role = i.Role }).ToList(),
-        ["tracks"] = m.Tracks.Select(t => new { title = t.Title, @explicit = t.Explicit, artists = t.Artists }).ToList()
+        ["tracks"] = m.Tracks.Select(t => new
+        {
+            title = t.Title,
+            @explicit = t.Explicit,
+            artists = t.Artists,
+            track_id = t.TrackId,
+            isrc = t.Isrc,
+            track_position = t.TrackPosition,
+            disk_number = t.DiskNumber,
+            release_date = t.ReleaseDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+        }).ToList()
     };
 }

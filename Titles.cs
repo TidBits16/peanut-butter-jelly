@@ -7,28 +7,73 @@ public static class Titles
     public const string ExplicitMark = " 🅴";
     public const string NoMatchTag = "DeezerNoMatch";
 
+    public static string Affix { get; set; } = ExplicitMark;
+
+    public static bool PrependMark { get; set; }
+
+    public static void UseStyle(string? affix, bool prepend)
+    {
+        Affix = string.IsNullOrEmpty(affix) ? ExplicitMark : affix;
+        PrependMark = prepend;
+    }
+
+    public static void ResetStyle()
+    {
+        Affix = ExplicitMark;
+        PrependMark = false;
+    }
+
     public static string StripMark(string name)
     {
-        if (name.EndsWith(ExplicitMark, StringComparison.Ordinal))
+        var s = name.Trim();
+        s = StripToken(s, Affix);
+        s = StripToken(s, ExplicitMark);
+        s = StripToken(s, "🅴");
+        return s.Trim();
+    }
+
+    private static string StripToken(string name, string token)
+    {
+        var mark = token.Trim();
+        if (mark.Length == 0)
         {
-            return name[..^ExplicitMark.Length];
+            return name;
         }
 
-        return name;
+        var s = name;
+        if (s.StartsWith(token, StringComparison.Ordinal) || s.StartsWith(mark, StringComparison.Ordinal))
+        {
+            s = s.StartsWith(token, StringComparison.Ordinal) ? s[token.Length..] : s[mark.Length..];
+            s = s.TrimStart();
+        }
+
+        if (s.EndsWith(token, StringComparison.Ordinal) || s.EndsWith(mark, StringComparison.Ordinal))
+        {
+            s = s.EndsWith(token, StringComparison.Ordinal) ? s[..^token.Length] : s[..^mark.Length];
+            s = s.TrimEnd();
+        }
+
+        return s;
     }
 
     public static bool HasExplicitMark(string name)
-        => name.EndsWith(ExplicitMark, StringComparison.Ordinal) || name.EndsWith("🅴", StringComparison.Ordinal);
+        => !string.Equals(name.Trim(), StripMark(name), StringComparison.Ordinal);
 
     public static string DesiredTitle(string name, bool explicitFlag)
     {
-        var bas = StripMark(name).Trim();
+        var bas = StripMark(name);
         if (bas.Length == 0)
         {
             return string.Empty;
         }
 
-        return explicitFlag ? bas + ExplicitMark : bas;
+        if (!explicitFlag)
+        {
+            return bas;
+        }
+
+        var mark = Affix.Length > 0 ? Affix : ExplicitMark;
+        return PrependMark ? (mark + bas).TrimStart() : (bas + mark).TrimEnd();
     }
 
     public static string Norm(string text)
