@@ -208,7 +208,18 @@ public class TaggerEngine
 
                     var tagged = albumItem is not null && HasAnyTag(albumItem, cfg.EffectiveExplicitTags);
                     var needUntag = tagged;
-                    var nameWrite = TitlePatch(albumName, match.Explicit, cfg);
+                    // Never put the explicit mark on MusicAlbum.Name — Jellyfin orphans tracks and leaves empty albums.
+                    // Undo marks from older plugin versions.
+                    string? nameWrite = null;
+                    if (cfg.RenameExplicitTitles && Titles.HasExplicitMark(albumName))
+                    {
+                        var stripped = Titles.StripMark(albumName);
+                        if (stripped.Length > 0 && stripped != albumName)
+                        {
+                            nameWrite = stripped;
+                        }
+                    }
+
                     var genreWrite = GenreWant(match.Genres, albumItem?.Genres);
                     var needAlbumArtists = NeedList(wantAlbumArtists, albumItem?.AlbumArtists.ToList() ?? []);
                     var needSongArtists = NeedList(wantAlbumSongArtists, albumItem?.Artists.ToList() ?? []);
@@ -291,6 +302,17 @@ public class TaggerEngine
                 var needSongArtists = cfg.TagTracks && NeedList(wantSongArtists, item.Artists);
                 var needAlbumArtists = cfg.TagTracks && NeedList(wantAlbumArtists, item.AlbumArtists);
                 var genreWrite = cfg.TagTracks ? GenreWant(match.Genres, item.Genres) : null;
+                // Keep Audio.Album free of the explicit mark so tracks stay attached to the album entity.
+                string? albumFieldWrite = null;
+                if (cfg.TagTracks && cfg.RenameExplicitTitles && Titles.HasExplicitMark(item.Album ?? string.Empty))
+                {
+                    var stripped = Titles.StripMark(item.Album ?? string.Empty);
+                    if (stripped.Length > 0 && stripped != item.Album)
+                    {
+                        albumFieldWrite = stripped;
+                    }
+                }
+
                 var trackRelease = dzTrack?.ReleaseDate ?? match.ReleaseDate;
                 var trackYear = trackRelease is { Year: >= 1000 } d ? d.Year : (int?)null;
                 var needYear = cfg.TagTracks && NeedInt(trackYear, item.ProductionYear);
@@ -300,7 +322,7 @@ public class TaggerEngine
                 var needDeezerId = cfg.TagTracks && NeedProvider(item, "Deezer", dzTrack?.TrackId ?? 0);
                 var needIsrc = cfg.TagTracks && NeedProvider(item, "ISRC", dzTrack?.Isrc);
                 if (newName is null && explicitWrite is null && !needSongArtists && !needAlbumArtists
-                    && genreWrite is null && !needYear && !needDate && !needIndex && !needDisc
+                    && genreWrite is null && albumFieldWrite is null && !needYear && !needDate && !needIndex && !needDisc
                     && !needDeezerId && !needIsrc && addTags is null && removeTags is null)
                 {
                     continue;
@@ -311,6 +333,7 @@ public class TaggerEngine
                     ItemId = item.Id,
                     Item = item,
                     Name = newName,
+                    Album = albumFieldWrite,
                     Genres = genreWrite,
                     Artists = needSongArtists ? wantSongArtists : null,
                     AlbumArtists = needAlbumArtists ? wantAlbumArtists : null,
@@ -526,6 +549,12 @@ public class TaggerEngine
         if (p.Name is not null && item.Name != p.Name)
         {
             item.Name = p.Name;
+            dirty = true;
+        }
+
+        if (p.Album is not null && item is Audio audio && audio.Album != p.Album)
+        {
+            audio.Album = p.Album;
             dirty = true;
         }
 
@@ -826,6 +855,9 @@ public class TaggerEngine
 
         public string? Name { get; init; }
 
+        /// <summary>Audio.Album only — kept free of the explicit mark so tracks stay on the album.</summary>
+        public string? Album { get; init; }
+
         public List<string> AddTags { get; init; } = [];
 
         public List<string> RemoveTags { get; init; } = [];
@@ -855,7 +887,7 @@ public class TaggerEngine
         public string? Upc { get; init; }
 
         public bool Empty =>
-            Genres is null && Artists is null && AlbumArtists is null && Explicit is null && Name is null
+            Genres is null && Artists is null && AlbumArtists is null && Explicit is null && Name is null && Album is null
             && AddTags.Count == 0 && RemoveTags.Count == 0 && Overview is null
             && LyricsText.Length == 0 && ImageUrl.Length == 0
             && ProductionYear is null && PremiereDate is null && IndexNumber is null && ParentIndexNumber is null
@@ -870,6 +902,7 @@ public class TaggerEngine
             AlbumArtists = src.AlbumArtists ?? AlbumArtists,
             Explicit = src.Explicit ?? Explicit,
             Name = src.Name ?? Name,
+            Album = src.Album ?? Album,
             AddTags = AddTags.Concat(src.AddTags).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             RemoveTags = RemoveTags.Concat(src.RemoveTags).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             Overview = src.Overview ?? Overview,

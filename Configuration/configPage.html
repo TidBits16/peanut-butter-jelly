@@ -26,7 +26,7 @@
                             <input is="emby-checkbox" type="checkbox" id="TagAlbums" />
                             <span>Sync albums from Deezer</span>
                         </label>
-                        <div class="fieldDescription checkboxDescription">Writes genres, album artists, song artists, release date, label, UPC, Deezer ID, and album cover (cover fills in when missing). Album artists and song artists go to separate Jellyfin fields. Explicit <em>tags</em> are never written on albums (Jellyfin would copy them onto every track); they are stripped if present.</div>
+                        <div class="fieldDescription checkboxDescription">Writes genres, album artists, song artists, release date, label, UPC, Deezer ID, and album cover (cover fills in when missing). Album artists and song artists go to separate Jellyfin fields. The album <em>title</em> is never given an explicit mark (that orphans tracks in Jellyfin). Explicit <em>tags</em> are never written on albums either; leftover ones are stripped.</div>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
@@ -63,7 +63,7 @@
                                 <input is="emby-checkbox" type="checkbox" id="RenameExplicitTitles" />
                                 <span>Rename titles</span>
                             </label>
-                            <div class="fieldDescription checkboxDescription">Adds or removes the mark on album and track names based on Deezer. Off = leave names as they are.</div>
+                            <div class="fieldDescription checkboxDescription">Adds or removes the mark on <em>track titles</em> only. Album names and the track Album field stay unmarked so Jellyfin does not leave empty album shells. Off = leave track titles as they are.</div>
                         </div>
                         <div class="selectContainer">
                             <label class="selectLabel" for="ExplicitMarkPlacement">Mark placement</label>

@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "4.1.4.0",
+        "changelog": "Stop putting explicit marks on album names (fixes empty albums). Strip old album/Album marks. Shorter README.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/TidBits16/peanut-butter-jelly/releases/download/v4.1.4.0/peanut-butter-jelly_4.1.4.0.zip",
+        "checksum": "414778ad2286b97c1624328c82de31b2",
+        "timestamp": "2026-08-21T14:48:38Z"
+      },
+      {
         "version": "4.1.3.0",
         "changelog": "Split old semicolon-joined genres into separate Jellyfin entries (even without a Deezer match). Deezer sync and explicit settings from 4.1.2.",
         "targetAbi": "10.11.0.0",
