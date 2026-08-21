@@ -4,7 +4,7 @@ namespace Jellyfin.Plugin.PeanutButterJelly;
 
 public static class Titles
 {
-    public const string ExplicitMark = " 🅴";
+    public const string ExplicitMark = "🅴";
     public const string NoMatchTag = "DeezerNoMatch";
 
     public static string Affix { get; set; } = ExplicitMark;
@@ -13,7 +13,8 @@ public static class Titles
 
     public static void UseStyle(string? affix, bool prepend)
     {
-        Affix = string.IsNullOrEmpty(affix) ? ExplicitMark : affix;
+        var text = (affix ?? string.Empty).Trim();
+        Affix = text.Length > 0 ? text : ExplicitMark;
         PrependMark = prepend;
     }
 
@@ -28,6 +29,7 @@ public static class Titles
         var s = name.Trim();
         s = StripToken(s, Affix);
         s = StripToken(s, ExplicitMark);
+        s = StripToken(s, " 🅴");
         s = StripToken(s, "🅴");
         return s.Trim();
     }
@@ -41,16 +43,23 @@ public static class Titles
         }
 
         var s = name;
-        if (s.StartsWith(token, StringComparison.Ordinal) || s.StartsWith(mark, StringComparison.Ordinal))
+        // With or without a surrounding space (users used to bake the space into the mark field).
+        foreach (var edge in new[] { mark, mark + " ", " " + mark })
         {
-            s = s.StartsWith(token, StringComparison.Ordinal) ? s[token.Length..] : s[mark.Length..];
-            s = s.TrimStart();
+            if (s.StartsWith(edge, StringComparison.Ordinal))
+            {
+                s = s[edge.Length..].TrimStart();
+                break;
+            }
         }
 
-        if (s.EndsWith(token, StringComparison.Ordinal) || s.EndsWith(mark, StringComparison.Ordinal))
+        foreach (var edge in new[] { mark, " " + mark, mark + " " })
         {
-            s = s.EndsWith(token, StringComparison.Ordinal) ? s[..^token.Length] : s[..^mark.Length];
-            s = s.TrimEnd();
+            if (s.EndsWith(edge, StringComparison.Ordinal))
+            {
+                s = s[..^edge.Length].TrimEnd();
+                break;
+            }
         }
 
         return s;
@@ -72,8 +81,14 @@ public static class Titles
             return bas;
         }
 
-        var mark = Affix.Length > 0 ? Affix : ExplicitMark;
-        return PrependMark ? (mark + bas).TrimStart() : (bas + mark).TrimEnd();
+        var mark = Affix.Trim();
+        if (mark.Length == 0)
+        {
+            mark = ExplicitMark;
+        }
+
+        // Always insert exactly one space — do not require it in the config field.
+        return PrependMark ? mark + " " + bas : bas + " " + mark;
     }
 
     public static string Norm(string text)

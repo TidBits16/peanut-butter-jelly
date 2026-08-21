@@ -742,28 +742,7 @@ public class TaggerEngine
         }
 
         var desired = Titles.DesiredTitle(current, deezerExplicit.Value);
-        if (current == desired)
-        {
-            return null;
-        }
-
-        if (cfg.RewriteExplicitTitlesEveryRun)
-        {
-            return desired;
-        }
-
-        var marked = Titles.HasExplicitMark(current);
-        if (deezerExplicit.Value && !marked)
-        {
-            return desired;
-        }
-
-        if (!deezerExplicit.Value && marked)
-        {
-            return desired;
-        }
-
-        return null;
+        return current == desired ? null : desired;
     }
 
     private static List<string>? GenreWant(IReadOnlyList<string> deezer, IReadOnlyList<string>? current)
