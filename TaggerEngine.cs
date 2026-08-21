@@ -494,30 +494,27 @@ public class TaggerEngine
             }
         })).ConfigureAwait(false);
 
-        if (cfg.RepairPlaylists)
+        try
         {
-            try
+            var repair = new PlaylistRepair(_playlists, _users, _paths, _logger);
+            var (plans, states) = await repair.PlanAsync(tracks, cancellationToken).ConfigureAwait(false);
+            repair.SaveSnapshot(states);
+            foreach (var plan in plans.Where(p => p.NeedsWrite))
             {
-                var repair = new PlaylistRepair(_playlists, _users, _paths, _logger);
-                var (plans, states) = await repair.PlanAsync(tracks, cancellationToken).ConfigureAwait(false);
-                repair.SaveSnapshot(states);
-                foreach (var plan in plans.Where(p => p.NeedsWrite))
+                try
                 {
-                    try
-                    {
-                        await repair.ApplyAsync(plan, cancellationToken).ConfigureAwait(false);
-                        _logger.LogInformation("PBJ rewrote playlist {Name} ({Live} → {Desired})", plan.Name, plan.LiveIds.Count, plan.DesiredIds.Count);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "PBJ playlist {Name} failed", plan.Name);
-                    }
+                    await repair.ApplyAsync(plan, cancellationToken).ConfigureAwait(false);
+                    _logger.LogInformation("PBJ rewrote playlist {Name} ({Live} → {Desired})", plan.Name, plan.LiveIds.Count, plan.DesiredIds.Count);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "PBJ playlist {Name} failed", plan.Name);
                 }
             }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "PBJ playlist repair skipped");
-            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PBJ playlist repair skipped");
         }
 
         progress.Report(100);

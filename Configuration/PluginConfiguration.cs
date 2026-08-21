@@ -31,8 +31,6 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Legacy. Used only when photo/bio provider lists are null.</summary>
     public bool FetchArtists { get; set; } = true;
 
-    public bool RepairPlaylists { get; set; } = true;
-
     public List<string>? LyricProviders { get; set; }
 
     public List<string>? PhotoProviders { get; set; }

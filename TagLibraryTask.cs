@@ -23,7 +23,7 @@ public class TagLibraryTask : IScheduledTask
     public string Key => "PeanutButterJellyTagLibrary";
 
     public string Description =>
-        "Sync Jellyfin from Deezer (genres, artists, dates, track numbers, covers, explicit), plus optional lyrics, bios, and playlist repair.";
+        "Sync Jellyfin from Deezer (genres, artists, dates, covers, explicit), plus optional lyrics and bios. Keeps playlists intact when titles change.";
 
     public string Category => "Library";
 

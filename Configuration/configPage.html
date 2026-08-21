@@ -12,77 +12,69 @@
                     <div class="sectionTitleContainer flex align-items-center">
                         <h2 class="sectionTitle">Peanut Butter &amp; Jelly</h2>
                     </div>
-                    <p>Deezer → Jellyfin. Genres, artists, dates, track numbers, labels, covers, and Deezer IDs stay in sync from the API. Explicit tagging is optional (Deezer provides it). Lyrics and bios are separate sources you can turn off — Deezer does not have those.</p>
+                    <p>Syncs Deezer metadata into Jellyfin. Lyrics and bios are optional extras.</p>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
                             <input is="emby-checkbox" type="checkbox" id="Force" />
                             <span>Overwrite lyrics, bios, and artwork</span>
                         </label>
-                        <div class="fieldDescription checkboxDescription">Off = fill missing lyrics, bios, album covers, and artist photos only. On = replace those even when Jellyfin already has them. Deezer genres, artists, dates, track numbers, labels, and IDs always update when they differ.</div>
+                        <div class="fieldDescription checkboxDescription">Off: only fill missing. On: replace existing. Deezer text fields always sync.</div>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
                             <input is="emby-checkbox" type="checkbox" id="TagAlbums" />
-                            <span>Sync albums from Deezer</span>
+                            <span>Sync albums</span>
                         </label>
-                        <div class="fieldDescription checkboxDescription">Writes genres, album artists, song artists, release date, label, UPC, Deezer ID, and album cover (cover fills in when missing). Album artists and song artists go to separate Jellyfin fields. The album <em>title</em> is never given an explicit mark (that orphans tracks in Jellyfin). Explicit <em>tags</em> are never written on albums either; leftover ones are stripped.</div>
+                        <div class="fieldDescription checkboxDescription">Genres, artists, date, label, UPC, Deezer ID, cover. Never writes explicit tags on albums.</div>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label>
                             <input is="emby-checkbox" type="checkbox" id="TagTracks" />
-                            <span>Sync tracks from Deezer</span>
+                            <span>Sync tracks</span>
                         </label>
-                        <div class="fieldDescription checkboxDescription">Writes song artists from Deezer track credits, album artists from the album, genres, release date, track/disc numbers, ISRC, and Deezer ID. Unmatched songs get DeezerNoMatch; that tag drops when a match shows up.</div>
-                    </div>
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label>
-                            <input is="emby-checkbox" type="checkbox" id="RepairPlaylists" />
-                            <span>Repair playlists</span>
-                        </label>
-                        <div class="fieldDescription checkboxDescription">Snapshots membership, then rematches by library-relative path. Empty playlists can be rebuilt from Jellyfin cleanup logs after a library move.</div>
+                        <div class="fieldDescription checkboxDescription">Artists, genres, date, track/disc #, ISRC, Deezer ID. Unmatched tracks get DeezerNoMatch.</div>
                     </div>
 
                     <div class="verticalSection">
                         <h3 class="checkboxListLabel">Explicit</h3>
-                        <div class="fieldDescription">Jellyfin tags go on tracks only — albums never get them (Jellyfin would copy them onto every track) and leftover album tags are stripped. Title marks can still be applied to albums and tracks. Unknown Deezer values are left alone.</div>
+                        <div class="fieldDescription">Track tags and titles only. Unknown Deezer values are left alone.</div>
                         <div class="checkboxContainer checkboxContainer-withDescription">
                             <label>
                                 <input is="emby-checkbox" type="checkbox" id="WriteExplicitTags" />
-                                <span>Write Jellyfin tags on tracks</span>
+                                <span>Add Jellyfin tags</span>
                             </label>
-                            <div class="fieldDescription checkboxDescription">Adds the names below when Deezer says explicit. Always strips those tags from albums.</div>
+                            <div class="fieldDescription checkboxDescription">When Deezer says the track is explicit.</div>
                         </div>
                         <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="ExplicitTags">Tags to add</label>
+                            <label class="inputLabel inputLabelUnfocused" for="ExplicitTags">Tag names</label>
                             <input is="emby-input" type="text" id="ExplicitTags" />
-                            <div class="fieldDescription">Comma-separated. Example: Explicit, NSFW</div>
+                            <div class="fieldDescription">Comma-separated, e.g. Explicit, NSFW</div>
                         </div>
                         <div class="checkboxContainer checkboxContainer-withDescription">
                             <label>
                                 <input is="emby-checkbox" type="checkbox" id="RenameExplicitTitles" />
-                                <span>Rename titles</span>
+                                <span>Mark track titles</span>
                             </label>
-                            <div class="fieldDescription checkboxDescription">Adds or removes the mark on <em>track titles</em> only. Album names and the track Album field stay unmarked so Jellyfin does not leave empty album shells. Off = leave track titles as they are.</div>
+                            <div class="fieldDescription checkboxDescription">Adds or removes the mark on song names only.</div>
                         </div>
                         <div class="selectContainer">
-                            <label class="selectLabel" for="ExplicitMarkPlacement">Mark placement</label>
+                            <label class="selectLabel" for="ExplicitMarkPlacement">Placement</label>
                             <select is="emby-select" id="ExplicitMarkPlacement">
-                                <option value="append">Append (after the title)</option>
-                                <option value="prepend">Prepend (before the title)</option>
+                                <option value="append">After the title</option>
+                                <option value="prepend">Before the title</option>
                             </select>
-                            <div class="fieldDescription">Where the mark goes relative to the title. Changing this rewrites marked titles on the next run so spacing and side stay consistent.</div>
                         </div>
                         <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="ExplicitMark">Mark text</label>
+                            <label class="inputLabel inputLabelUnfocused" for="ExplicitMark">Mark</label>
                             <input is="emby-input" type="text" id="ExplicitMark" />
-                            <div class="fieldDescription">Just the mark (e.g. 🅴 or [E]). A space is added automatically for append or prepend.</div>
+                            <div class="fieldDescription">e.g. 🅴 or [E] — a space is added automatically</div>
                         </div>
                     </div>
 
                     <div class="verticalSection">
-                        <h3 class="checkboxListLabel">Lyric providers</h3>
-                        <div class="fieldDescription">Not from Deezer. Leave all unchecked to skip writing lyrics.</div>
+                        <h3 class="checkboxListLabel">Lyrics</h3>
+                        <div class="fieldDescription">Unchecked = skip. Not from Deezer.</div>
                         <div class="checkboxList paperList" style="padding:.5em 1em">
                             <label class="checkboxListItem">
                                 <input is="emby-checkbox" type="checkbox" class="PbjLyric" data-id="LRCLIB" />
@@ -92,8 +84,8 @@
                     </div>
 
                     <div class="verticalSection">
-                        <h3 class="checkboxListLabel">Artist photos (Deezer)</h3>
-                        <div class="fieldDescription">From the Deezer API. Leave all unchecked to skip writing artist photos.</div>
+                        <h3 class="checkboxListLabel">Artist photos</h3>
+                        <div class="fieldDescription">Unchecked = skip.</div>
                         <div class="checkboxList paperList" style="padding:.5em 1em">
                             <label class="checkboxListItem">
                                 <input is="emby-checkbox" type="checkbox" class="PbjPhoto" data-id="Deezer" />
@@ -103,8 +95,8 @@
                     </div>
 
                     <div class="verticalSection">
-                        <h3 class="checkboxListLabel">Artist bio providers</h3>
-                        <div class="fieldDescription">Deezer has no artist bios. These are optional extras, tried in order. Leave all unchecked to skip writing bios.</div>
+                        <h3 class="checkboxListLabel">Artist bios</h3>
+                        <div class="fieldDescription">Tried in order. Unchecked = skip. Not from Deezer.</div>
                         <div class="checkboxList paperList" style="padding:.5em 1em">
                             <label class="checkboxListItem">
                                 <input is="emby-checkbox" type="checkbox" class="PbjBio" data-id="AudioDB" />
@@ -124,26 +116,20 @@
                     <details class="verticalSection">
                         <summary class="checkboxListLabel" style="cursor:pointer">Advanced</summary>
                         <div class="inputContainer" style="margin-top:1em">
-                            <label class="inputLabel" for="Workers">Workers (0 = auto)</label>
+                            <label class="inputLabel" for="Workers">Workers</label>
                             <input is="emby-input" type="number" id="Workers" min="0" />
-                            <div class="fieldDescription">Caps at the CPU count. Leave 0 unless you need to slow the job down.</div>
+                            <div class="fieldDescription">0 = auto (CPU count)</div>
                         </div>
                     </details>
 
-                    <div class="verticalSection" style="display:flex;gap:1em;flex-wrap:wrap;align-items:center">
-                        <button is="emby-button" type="submit" class="raised button-submit">
-                            <span>Save</span>
-                        </button>
-                        <button is="emby-button" type="button" id="PbjForceRun" class="raised">
-                            <span>Force Run</span>
-                        </button>
-                    </div>
-                    <div class="fieldDescription" id="PbjForceRunStatus">Save stores these settings. Force Run saves, then starts the scheduled task immediately. Deezer metadata always syncs; the overwrite checkbox only affects lyrics, bios, and artwork.</div>
+                    <button is="emby-button" type="submit" class="raised button-submit block">
+                        <span>Save</span>
+                    </button>
                 </form>
             </div>
         </div>
         <script>
-            const PbjConfig = { pluginUniqueId: 'dca13c74-4ea4-4a69-b717-82a06a400c31', taskKey: 'PeanutButterJellyTagLibrary' };
+            const PbjConfig = { pluginUniqueId: 'dca13c74-4ea4-4a69-b717-82a06a400c31' };
 
             function selected(selector) {
                 return Array.from(document.querySelectorAll(selector + ':checked')).map(function (el) { return el.getAttribute('data-id'); });
@@ -163,7 +149,6 @@
                 document.querySelector('#Force').checked = !!config.Force;
                 document.querySelector('#TagAlbums').checked = config.TagAlbums !== false;
                 document.querySelector('#TagTracks').checked = config.TagTracks !== false;
-                document.querySelector('#RepairPlaylists').checked = config.RepairPlaylists !== false;
                 document.querySelector('#WriteExplicitTags').checked = config.WriteExplicitTags !== false;
                 document.querySelector('#ExplicitTags').value = config.ExplicitTags || 'Explicit';
                 document.querySelector('#RenameExplicitTitles').checked = config.RenameExplicitTitles !== false;
@@ -183,7 +168,6 @@
                     config.Force = document.querySelector('#Force').checked;
                     config.TagAlbums = document.querySelector('#TagAlbums').checked;
                     config.TagTracks = document.querySelector('#TagTracks').checked;
-                    config.RepairPlaylists = document.querySelector('#RepairPlaylists').checked;
                     config.WriteExplicitTags = document.querySelector('#WriteExplicitTags').checked;
                     config.ExplicitTags = document.querySelector('#ExplicitTags').value;
                     config.RenameExplicitTitles = document.querySelector('#RenameExplicitTitles').checked;
@@ -196,27 +180,6 @@
                     config.FetchLyrics = config.LyricProviders.length > 0;
                     config.FetchArtists = config.PhotoProviders.length > 0 || config.BioProviders.length > 0;
                     return ApiClient.updatePluginConfiguration(PbjConfig.pluginUniqueId, config);
-                });
-            }
-
-            function startTask() {
-                const getTasks = ApiClient.getScheduledTasks
-                    ? ApiClient.getScheduledTasks()
-                    : ApiClient.getJSON(ApiClient.getUrl('ScheduledTasks'));
-                return getTasks.then(function (tasks) {
-                    const task = (tasks || []).find(function (t) {
-                        return t.Key === PbjConfig.taskKey || t.Name === 'Peanut Butter & Jelly';
-                    });
-                    if (!task) {
-                        throw new Error('Scheduled task not found. Restart Jellyfin after installing the plugin.');
-                    }
-                    if (ApiClient.startScheduledTask) {
-                        return ApiClient.startScheduledTask(task.Id);
-                    }
-                    return ApiClient.ajax({
-                        type: 'POST',
-                        url: ApiClient.getUrl('ScheduledTasks/Running/' + task.Id)
-                    });
                 });
             }
 
@@ -237,20 +200,6 @@
                     Dashboard.hideLoadingMsg();
                 });
                 return false;
-            });
-
-            document.querySelector('#PbjForceRun').addEventListener('click', function () {
-                const status = document.querySelector('#PbjForceRunStatus');
-                Dashboard.showLoadingMsg();
-                saveConfig().then(function () {
-                    return startTask();
-                }).then(function () {
-                    Dashboard.hideLoadingMsg();
-                    status.textContent = 'Running. Dashboard → Scheduled Tasks to watch progress or cancel.';
-                }).catch(function (err) {
-                    Dashboard.hideLoadingMsg();
-                    status.textContent = (err && err.message) ? err.message : 'Could not start the task.';
-                });
             });
         </script>
     </div>

@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "4.1.7.0",
+        "changelog": "Shorter settings UI. Remove Force Run. Playlist repair always on (no toggle).",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/TidBits16/peanut-butter-jelly/releases/download/v4.1.7.0/peanut-butter-jelly_4.1.7.0.zip",
+        "checksum": "1a6ca62b94245e86926090f1dd81d48b",
+        "timestamp": "2026-08-21T16:44:58Z"
+      },
+      {
         "version": "4.1.6.0",
         "changelog": "Remove unused Rewrite titles every run setting (titles already normalize automatically).",
         "targetAbi": "10.11.0.0",
