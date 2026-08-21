@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "4.1.6.0",
+        "changelog": "Remove unused Rewrite titles every run setting (titles already normalize automatically).",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/TidBits16/peanut-butter-jelly/releases/download/v4.1.6.0/peanut-butter-jelly_4.1.6.0.zip",
+        "checksum": "0775686b95ebd71decaffa36c6d24d13",
+        "timestamp": "2026-08-21T16:00:00Z"
+      },
+      {
         "version": "4.1.5.0",
         "changelog": "Auto-space explicit marks (type [E] or \ud83c\udd74, no manual space). Normalize wrong-side and no-space titles on the next run.",
         "targetAbi": "10.11.0.0",

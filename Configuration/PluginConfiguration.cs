@@ -70,8 +70,6 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>append or prepend.</summary>
     public string ExplicitMarkPlacement { get; set; } = "append";
 
-    public bool RewriteExplicitTitlesEveryRun { get; set; }
-
     public IReadOnlyList<string> EffectiveExplicitTags
         => (ExplicitTags ?? string.Empty)
             .Split([',', ';', '\n'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)

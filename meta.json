@@ -6,7 +6,7 @@
   "owner": "TidBits16",
   "category": "Metadata",
   "imageUrl": "",
-    "version": "4.1.5.0",
+    "version": "4.1.6.0",
   "targetAbi": "10.11.0.0",
-  "changelog": "Auto-space explicit marks (type [E] or 🅴, no manual space). Normalize wrong-side and no-space titles on the next run."
+  "changelog": "Remove unused Rewrite titles every run setting (titles already normalize automatically)."
 }

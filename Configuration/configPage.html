@@ -78,13 +78,6 @@
                             <input is="emby-input" type="text" id="ExplicitMark" />
                             <div class="fieldDescription">Just the mark (e.g. 🅴 or [E]). A space is added automatically for append or prepend.</div>
                         </div>
-                        <div class="checkboxContainer checkboxContainer-withDescription">
-                            <label>
-                                <input is="emby-checkbox" type="checkbox" id="RewriteExplicitTitlesEveryRun" />
-                                <span>Rewrite titles every run</span>
-                            </label>
-                            <div class="fieldDescription checkboxDescription">Usually unnecessary now — marked titles are fixed automatically when spacing, placement, or mark text is wrong. Leave off.</div>
-                        </div>
                     </div>
 
                     <div class="verticalSection">
@@ -176,7 +169,6 @@
                 document.querySelector('#RenameExplicitTitles').checked = config.RenameExplicitTitles !== false;
                 document.querySelector('#ExplicitMark').value = config.ExplicitMark != null && config.ExplicitMark !== '' ? config.ExplicitMark.trim() || '🅴' : '🅴';
                 document.querySelector('#ExplicitMarkPlacement').value = (config.ExplicitMarkPlacement || 'append').toLowerCase() === 'prepend' ? 'prepend' : 'append';
-                document.querySelector('#RewriteExplicitTitlesEveryRun').checked = !!config.RewriteExplicitTitlesEveryRun;
                 document.querySelector('#Workers').value = config.Workers || 0;
                 const lyricsUnset = config.LyricProviders == null;
                 const photosUnset = config.PhotoProviders == null;
@@ -197,7 +189,6 @@
                     config.RenameExplicitTitles = document.querySelector('#RenameExplicitTitles').checked;
                     config.ExplicitMark = document.querySelector('#ExplicitMark').value;
                     config.ExplicitMarkPlacement = document.querySelector('#ExplicitMarkPlacement').value;
-                    config.RewriteExplicitTitlesEveryRun = document.querySelector('#RewriteExplicitTitlesEveryRun').checked;
                     config.Workers = parseInt(document.querySelector('#Workers').value, 10) || 0;
                     config.LyricProviders = selected('.PbjLyric');
                     config.PhotoProviders = selected('.PbjPhoto');

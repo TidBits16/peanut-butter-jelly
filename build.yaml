@@ -1,6 +1,6 @@
 name: "Peanut Butter & Jelly"
 guid: "dca13c74-4ea4-4a69-b717-82a06a400c31"
-version: "4.1.5.0"
+version: "4.1.6.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Deezer → Jellyfin sync: genres, artists, dates, covers, explicit, plus optional lyrics and bios"
@@ -10,5 +10,5 @@ owner: "TidBits16"
 artifacts:
   - "Jellyfin.Plugin.PeanutButterJelly.dll"
 changelog: >
-  Auto-space explicit marks (type [E] or 🅴 — no manual space).
-  Normalize wrong-side and no-space titles on the next run.
+  Remove unused Rewrite titles every run setting
+  (titles already normalize automatically).
