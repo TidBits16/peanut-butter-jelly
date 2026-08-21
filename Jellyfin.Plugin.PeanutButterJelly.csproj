@@ -5,9 +5,9 @@
     <AssemblyName>Jellyfin.Plugin.PeanutButterJelly</AssemblyName>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>4.1.7.0</Version>
-    <FileVersion>4.1.7.0</FileVersion>
-    <AssemblyVersion>4.1.7.0</AssemblyVersion>
+    <Version>4.1.8.0</Version>
+    <FileVersion>4.1.8.0</FileVersion>
+    <AssemblyVersion>4.1.8.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Jellyfin.Controller" Version="10.11.0">

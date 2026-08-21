@@ -1,14 +1,14 @@
 name: "Peanut Butter & Jelly"
 guid: "dca13c74-4ea4-4a69-b717-82a06a400c31"
-version: "4.1.7.0"
+version: "4.1.8.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-overview: "Deezer → Jellyfin sync: genres, artists, dates, covers, explicit, plus optional lyrics and bios"
+overview: "Deezer to Jellyfin sync: genres, artists, dates, covers, explicit, plus optional lyrics and bios"
 description: "Scheduled-task music tagger that keeps Jellyfin in sync with the Deezer API."
 category: "Metadata"
 owner: "TidBits16"
 artifacts:
   - "Jellyfin.Plugin.PeanutButterJelly.dll"
 changelog: >
-  Shorter settings UI. Remove Force Run.
-  Playlist repair always runs (no toggle to disable).
+  Default explicit mark is [E] (plain text).
+  Strip legacy squared-E marks from titles.

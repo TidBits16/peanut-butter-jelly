@@ -63,7 +63,7 @@ public class PluginConfiguration : BasePluginConfiguration
 
     public bool RenameExplicitTitles { get; set; } = true;
 
-    public string ExplicitMark { get; set; } = "🅴";
+    public string ExplicitMark { get; set; } = "[E]";
 
     /// <summary>append or prepend.</summary>
     public string ExplicitMarkPlacement { get; set; } = "append";

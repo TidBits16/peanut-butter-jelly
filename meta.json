@@ -6,7 +6,7 @@
   "owner": "TidBits16",
   "category": "Metadata",
   "imageUrl": "",
-    "version": "4.1.7.0",
+    "version": "4.1.8.0",
   "targetAbi": "10.11.0.0",
-  "changelog": "Shorter settings UI. Remove Force Run. Playlist repair always on (no toggle)."
+  "changelog": "Default explicit mark is [E] (plain text). Strip legacy squared-E marks."
 }

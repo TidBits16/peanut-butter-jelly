@@ -68,7 +68,7 @@
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="ExplicitMark">Mark</label>
                             <input is="emby-input" type="text" id="ExplicitMark" />
-                            <div class="fieldDescription">e.g. 🅴 or [E] — a space is added automatically</div>
+                            <div class="fieldDescription">e.g. [E] - a space is added automatically</div>
                         </div>
                     </div>
 
@@ -152,7 +152,11 @@
                 document.querySelector('#WriteExplicitTags').checked = config.WriteExplicitTags !== false;
                 document.querySelector('#ExplicitTags').value = config.ExplicitTags || 'Explicit';
                 document.querySelector('#RenameExplicitTitles').checked = config.RenameExplicitTitles !== false;
-                document.querySelector('#ExplicitMark').value = config.ExplicitMark != null && config.ExplicitMark !== '' ? config.ExplicitMark.trim() || '🅴' : '🅴';
+                var mark = (config.ExplicitMark != null ? String(config.ExplicitMark) : '').trim();
+                if (!mark || mark === '🅴') {
+                    mark = '[E]';
+                }
+                document.querySelector('#ExplicitMark').value = mark;
                 document.querySelector('#ExplicitMarkPlacement').value = (config.ExplicitMarkPlacement || 'append').toLowerCase() === 'prepend' ? 'prepend' : 'append';
                 document.querySelector('#Workers').value = config.Workers || 0;
                 const lyricsUnset = config.LyricProviders == null;

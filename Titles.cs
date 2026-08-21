@@ -4,7 +4,7 @@ namespace Jellyfin.Plugin.PeanutButterJelly;
 
 public static class Titles
 {
-    public const string ExplicitMark = "🅴";
+    public const string ExplicitMark = "[E]";
     public const string NoMatchTag = "DeezerNoMatch";
 
     public static string Affix { get; set; } = ExplicitMark;
@@ -29,7 +29,7 @@ public static class Titles
         var s = name.Trim();
         s = StripToken(s, Affix);
         s = StripToken(s, ExplicitMark);
-        s = StripToken(s, " 🅴");
+        // Older default mark (squared E).
         s = StripToken(s, "🅴");
         return s.Trim();
     }
@@ -87,7 +87,7 @@ public static class Titles
             mark = ExplicitMark;
         }
 
-        // Always insert exactly one space — do not require it in the config field.
+        // Always insert exactly one space; do not require it in the config field.
         return PrependMark ? mark + " " + bas : bas + " " + mark;
     }
 
